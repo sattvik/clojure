@@ -2,6 +2,7 @@ test-classes/*
 classes/*
 *jar
 pom.xml
+classes.dex
 clojure.iws
 clojure.ipr
 nbproject/private/
