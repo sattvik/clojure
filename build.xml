@@ -8,6 +8,18 @@
     the nightly-build or stable-build targets.
   </description>
 
+
+  <property name="android.version" value="9"/>
+  <property name="android.sdk.dir" location="/opt/android-sdk-update-manager"/>
+  <property name="android.platform-tools.dir" location="${android.sdk.dir}/platform-tools"/>
+  <property name="android.platform.dir" location="${android.sdk.dir}/platforms/android-${android.version}"/>
+  <property name="android.jar" location="${android.platform.dir}/android.jar"/>
+  <property name="dx" location="${android.platform-tools.dir}/dx"/>
+  <property name="dx.jar" location="${android.platform-tools.dir}/lib/dx.jar"/>
+  <property name="dx-lite.jar" location="dx-lite.jar"/>
+  <property name="android.jar" location="${android.sdk.dir}/platform-tools"/>
+  <property name="dex.file" location="classes.dex"/>
+
   <property name="src" location="src"/>
   <property name="test" location="test"/>
   <property name="jsrc" location="${src}/jvm"/>
@@ -59,16 +71,20 @@
   <property name="clojure_noversion_jar" location="clojure.jar"/>
   <property name="slim_noversion_jar" location="clojure-slim.jar"/>
   <property name="src_noversion_jar" location="clojure-sources.jar"/>
+  <property name="nosrc_noversion_jar" location="clojure-nosrc.jar"/>
+  <property name="dex_noversion_jar" location="clojure-dex.jar"/>
   <property name="clojure_jar" location="clojure-${clojure.version.label}.jar"/>
   <property name="slim_jar" location="clojure-slim-${clojure.version.label}.jar"/>
   <property name="src_jar" location="clojure-sources-${clojure.version.label}.jar"/>
+  <property name="nosrc_jar" location="clojure-nosrc-${clojure.version.label}.jar"/>
+  <property name="dex_jar" location="clojure-dex-${clojure.version.label}.jar"/>
 
   <!-- These make sense for building on tapestry.formos.com -->
 
   <property name="snapshot.repo.dir" location="/var/www/maven-snapshot-repository"/>
   <property name="stable.repo.dir" location="/var/www/maven-repository"/>
 
-  <target name="init" depends="clean">
+  <target name="init">
     <tstamp/>
     <mkdir dir="${build}"/>
   	<antcall target="init-version"/>
@@ -84,16 +100,33 @@
   	<chmod file="pom.xml" perm="ugo-w"/>
   </target>
 
-  <target name="compile-java" depends="init"
+  <target name="dx-lite" depends="init">
+      <jar jarfile="${dx-lite.jar}">
+          <zipfileset src="${dx.jar}">
+              <exclude name="junit/**"/>
+              <exclude name="META-INF/**"/>
+              <exclude name="**/_tests"/>
+              <exclude name="**/_tests/_*.class"/>
+          </zipfileset>
+      </jar>
+  </target>
+
+  <target name="compile-java" depends="init,dx-lite"
           description="Compile Java sources.">
     <javac srcdir="${jsrc}" destdir="${build}" includeJavaRuntime="yes"
-           debug="true" target="1.5"/>
+           includeantruntime="false"
+           debug="true" target="1.5">
+        <classpath>
+            <pathelement path="${dx-lite.jar}"/>
+            <pathelement path="${android.jar}"/>
+        </classpath>
+    </javac>
   </target>
 
   <target name="compile-clojure" depends="compile-java"
           description="Compile Clojure sources.">
     <java classname="clojure.lang.Compile"
-          classpath="${build}:${cljsrc}"
+          classpath="${build}:${cljsrc}:${dx-lite.jar}:${android.jar}"
           failonerror="true">
       <sysproperty key="clojure.compile.path" value="${build}"/>
       <!-- <sysproperty key="clojure.compile.warn-on-reflection" value="true"/> -->
@@ -122,7 +155,8 @@
   </target>
 
   <target name="compile-tests" 
-          description="Compile the subset of tests that require compilation.">
+          description="Compile the subset of tests that require compilation."
+          unless="${skiptests}">
     <delete dir="${test-classes}"/>
     <mkdir dir="${test-classes}"/>
     <java classname="clojure.lang.Compile"
@@ -135,7 +169,8 @@
   </target>
 
   <target name="test-only"
-          description="Run clojure tests without recompiling first">
+          description="Run clojure tests without recompiling first"
+          unless="${skiptests}">
     <java classname="clojure.main" failonerror="true">
       <classpath>
         <path location="${test-classes}"/>
@@ -195,7 +230,41 @@
     <copy file="${src_jar}" tofile="${src_noversion_jar}" />
   </target>
 
-  <target name="all" depends="clojure-jar,clojure-jar-slim,clojure-jar-sources"/>
+  <target name="clojure-jar-no-sources" depends="clojure-jar">
+      <jar jarfile="${nosrc_jar}">
+          <zipfileset src="${clojure_jar}">
+              <include name="**/*.class"/>
+              <include name="clojure/version.properties"/>
+          </zipfileset>
+          <manifest>
+              <attribute name="Main-Class" value="clojure.main"/>
+              <attribute name="Class-Path" value="."/>
+          </manifest>
+      </jar>
+      <copy file="${nosrc_jar}" tofile="${nosrc_noversion_jar}" />
+  </target>
+
+  <target name="dex" depends="clojure-jar-no-sources">
+      <exec executable="${dx}" failonerror="true">
+          <arg value="--dex"/>
+          <arg value="--output=${dex.file}" />
+          <arg path="${nosrc_jar}"/>
+          <arg path="${dx-lite.jar}"/>
+      </exec>
+  </target>
+
+  <target name="clojure-jar-dex" depends="dex">
+      <jar jarfile="${dex_jar}">
+          <fileset dir="${cljsrc}" includes="clojure/version.properties"/>
+          <mappedresources>
+              <files includes="${dex.file}"/>
+              <mergemapper to="classes.dex"/>
+          </mappedresources>
+      </jar>
+      <copy file="${dex_jar}" tofile="${dex_noversion_jar}" />
+  </target>
+
+  <target name="all" depends="clojure-jar,clojure-jar-slim,clojure-jar-sources,clojure-jar-no-sources"/>
 
   <target name="clean"
           description="Remove autogenerated files and directories.">

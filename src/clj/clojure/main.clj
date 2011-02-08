@@ -160,7 +160,10 @@
        default: repl-caught"
   [& options]
   (let [cl (.getContextClassLoader (Thread/currentThread))]
-    (.setContextClassLoader (Thread/currentThread) (clojure.lang.DynamicClassLoader. cl)))
+    (.setContextClassLoader (Thread/currentThread)
+                            (if (= *vm-type* :dalvik-vm)
+                              (clojure.lang.DalvikDynamicClassLoader. cl)
+                              (clojure.lang.JvmDynamicClassLoader. cl))))
   (let [{:keys [init need-prompt prompt flush read eval print caught]
          :or {init        #()
               need-prompt (if (instance? LineNumberingPushbackReader *in*)

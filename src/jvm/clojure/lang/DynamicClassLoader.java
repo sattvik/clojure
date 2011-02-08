@@ -9,65 +9,92 @@
  **/
 
 /* rich Aug 21, 2007 */
-
 package clojure.lang;
 
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.SoftReference;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.net.URLClassLoader;
-import java.net.URL;
-import java.lang.ref.ReferenceQueue;
-import java.lang.ref.SoftReference;
 
-public class DynamicClassLoader extends URLClassLoader{
-HashMap<Integer, Object[]> constantVals = new HashMap<Integer, Object[]>();
-static ConcurrentHashMap<String, SoftReference<Class>>classCache =
-        new ConcurrentHashMap<String, SoftReference<Class> >();
+public abstract class DynamicClassLoader extends URLClassLoader {
+    private static ConcurrentHashMap<String, SoftReference<Class>> classCache =
+            new ConcurrentHashMap<String, SoftReference<Class>>();
+    private static final ReferenceQueue<Class> rq = new ReferenceQueue<Class>();
+    private static final URL[] EMPTY_URLS = new URL[]{};
+    HashMap<Integer, Object[]> constantVals = new HashMap<Integer, Object[]>();
 
-static final URL[] EMPTY_URLS = new URL[]{};
+    public DynamicClassLoader() {
+        //pseudo test in lieu of hasContextClassLoader()
+        super(EMPTY_URLS,
+              (Thread.currentThread().getContextClassLoader() == null
+               || Thread.currentThread().getContextClassLoader() == ClassLoader
+                      .getSystemClassLoader()) ? Compiler.class.getClassLoader()
+                                               : Thread.currentThread()
+                                                       .getContextClassLoader());
+    }
 
-static final ReferenceQueue rq = new ReferenceQueue();
+    public DynamicClassLoader(final ClassLoader parent) {
+        super(EMPTY_URLS, parent);
+    }
 
-public DynamicClassLoader(){
-    //pseudo test in lieu of hasContextClassLoader()
-	super(EMPTY_URLS,(Thread.currentThread().getContextClassLoader() == null ||
-                Thread.currentThread().getContextClassLoader() == ClassLoader.getSystemClassLoader())?
-                Compiler.class.getClassLoader():Thread.currentThread().getContextClassLoader());
-}
+    public final Class defineClass(String name, byte[] bytes, Object srcForm) {
+        //cleanup any dead entries
+        if (rq.poll() != null) {
+            while (rq.poll() != null) {
+                System.out.println("Spinning like crazy!");
+            }
+            for (Map.Entry<String, SoftReference<Class>> e : classCache
+                    .entrySet()) {
+                if (e.getValue().get() == null) {
+                    final String className=e.getKey();
+                    classCache.remove(className, e.getValue());
+                    classRemoved(className);
+                }
+            }
+        }
+        Class c = defineMissingClass(name, bytes, srcForm);
+        classCache.put(name, new SoftReference<Class>(c, rq));
+        return c;
+    }
 
-public DynamicClassLoader(ClassLoader parent){
-	super(EMPTY_URLS,parent);
-}
+    protected abstract Class<?> defineMissingClass(final String name,
+            final byte[] bytes, final Object srcForm);
 
-public Class defineClass(String name, byte[] bytes, Object srcForm){
-	Util.clearCache(rq, classCache);
-	Class c = defineClass(name, bytes, 0, bytes.length);
-    classCache.put(name, new SoftReference(c,rq));
-    return c;
-}
+    public final void registerConstants(int id, Object[] val) {
+        constantVals.put(id, val);
+    }
 
-protected Class<?> findClass(String name) throws ClassNotFoundException{
-    SoftReference<Class> cr = classCache.get(name);
-	if(cr != null)
-		{
-		Class c = cr.get();
-        if(c != null)
-            return c;
-		}
-	return super.findClass(name);
-}
+    public final Object[] getConstants(int id) {
+        return constantVals.get(id);
+    }
 
-public void registerConstants(int id, Object[] val){
-	constantVals.put(id, val);
-}
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        SoftReference<Class> cr = classCache.get(name);
+        if (cr != null) {
+            Class c = cr.get();
+            if (c != null) {
+                return c;
+            } else {
+                classCache.remove(name, cr);
+                classRemoved(name);
+            }
+        }
+        return super.findClass(name);
+    }
 
-public Object[] getConstants(int id){
-	return constantVals.get(id);
-}
+    /**
+     * Notifies a child class loader that a given class name is no longer used.
+     *
+     * @param className the name of the class that has been removed
+     */
+    protected abstract void classRemoved(final String className);
 
-public void addURL(URL url){
-	super.addURL(url);
-}
-
+    @Override
+    public final void addURL(URL url) {
+        super.addURL(url);
+    }
 }

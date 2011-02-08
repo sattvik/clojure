@@ -182,6 +182,11 @@ final static public Var AGENT = Var.intern(CLOJURE_NS, Symbol.create("*agent*"),
 final static public Var READEVAL = Var.intern(CLOJURE_NS, Symbol.create("*read-eval*"), T);
 final static public Var ASSERT = Var.intern(CLOJURE_NS, Symbol.create("*assert*"), T);
 final static public Var MATH_CONTEXT = Var.intern(CLOJURE_NS, Symbol.create("*math-context*"), null);
+static Keyword DALVIK_VM = Keyword.intern(null, "dalvik-vm");
+static Keyword JAVA_VM = Keyword.intern(null, "java-vm");
+final static public Var VM_TYPE =
+        Var.intern(CLOJURE_NS, Symbol.create("*vm-type*"),
+                   (System.getProperty("java.vm.name").equals("Dalvik")) ? DALVIK_VM : JAVA_VM);
 static Keyword LINE_KEY = Keyword.intern(null, "line");
 static Keyword FILE_KEY = Keyword.intern(null, "file");
 static Keyword DECLARED_KEY = Keyword.intern(null, "declared");
@@ -1544,7 +1549,12 @@ static public ClassLoader makeClassLoader(){
             try{
             Var.pushThreadBindings(RT.map(USE_CONTEXT_CLASSLOADER, RT.T));
 //			getRootClassLoader();
-			return new DynamicClassLoader(baseLoader());
+                if(VM_TYPE.deref()==DALVIK_VM) {
+                    return new DalvikDynamicClassLoader(baseLoader());
+                } else {
+			return new JvmDynamicClassLoader(baseLoader());
+                }
+
             }
                 finally{
             Var.popThreadBindings();
