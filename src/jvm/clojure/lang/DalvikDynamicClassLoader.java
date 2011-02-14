@@ -34,16 +34,13 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
     @Override
     protected Class<?> defineMissingClass(final String name, final byte[] bytes,
             final Object srcForm) {
-        Log.d(TAG,"defineMissingClass: "+name);
         final com.android.dx.dex.file.DexFile outDexFile =
                 new com.android.dx.dex.file.DexFile();
         outDexFile.add(CfTranslator.translate("", bytes, OPTIONS));
         final File compileDir = new File((String) COMPILE_PATH.deref());
-        Log.d(TAG,"compileDir= "+compileDir.getAbsolutePath());
         try {
             final File jarFile =
                     File.createTempFile("repl-", ".jar", compileDir);
-            Log.d(TAG,"jarFile= "+jarFile.getAbsolutePath());
             jarFile.deleteOnExit();
             final ZipOutputStream jarOut =
                     new ZipOutputStream(new FileOutputStream(jarFile));
@@ -54,7 +51,6 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
             final String dexPath =
                     jarPath.substring(0, jarPath.lastIndexOf('.'))
                             .concat(".dex");
-            Log.d(TAG,"dexPath= "+dexPath);
             final DexFile inDexFile = DexFile.loadDex(jarPath, dexPath, 0);
             Class<?> clazz = inDexFile.loadClass(name.replace(".", "/"), this);
             if (clazz == null) {
@@ -62,7 +58,6 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
                 throw new RuntimeException(
                         "Failed to load generated class " + name + ".");
             }
-            Log.d(TAG,"Successfully defined class "+name);
             return clazz;
         } catch (IOException e) {
             Log.e(TAG,"Failed to define class due to I/O exception.",e);
