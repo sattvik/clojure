@@ -42,19 +42,7 @@ public abstract class DynamicClassLoader extends URLClassLoader {
 
     public final Class defineClass(String name, byte[] bytes, Object srcForm) {
         //cleanup any dead entries
-        if (rq.poll() != null) {
-            while (rq.poll() != null) {
-                System.out.println("Spinning like crazy!");
-            }
-            for (Map.Entry<String, SoftReference<Class>> e : classCache
-                    .entrySet()) {
-                if (e.getValue().get() == null) {
-                    final String className=e.getKey();
-                    classCache.remove(className, e.getValue());
-                    classRemoved(className);
-                }
-            }
-        }
+        Util.clearCache(rq,classCache);
         Class c = defineMissingClass(name, bytes, srcForm);
         classCache.put(name, new SoftReference<Class>(c, rq));
         return c;
@@ -80,19 +68,10 @@ public abstract class DynamicClassLoader extends URLClassLoader {
                 return c;
             } else {
                 classCache.remove(name, cr);
-                classRemoved(name);
             }
         }
         return super.findClass(name);
     }
-
-    /**
-     * Notifies a child class loader that a given class name is no longer used.
-     *
-     * @param className the name of the class that has been removed
-     */
-    protected abstract void classRemoved(final String className);
-
     @Override
     public final void addURL(URL url) {
         super.addURL(url);

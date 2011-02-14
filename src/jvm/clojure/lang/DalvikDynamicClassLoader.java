@@ -21,8 +21,6 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
         OPTIONS.strictNameCheck = false;
     }
 
-    private static final ConcurrentMap<String, DexFile> DEX_FILE_MAP =
-            new ConcurrentHashMap<String, DexFile>();
     private static final String TAG = "DalvikClojureCompiler";
 
     public DalvikDynamicClassLoader() {
@@ -70,16 +68,5 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
             Log.e(TAG,"Failed to define class due to I/O exception.",e);
             throw new RuntimeException(e);
         }
-    }
-
-    /**
-     * Clears out resources associated with the given class.
-     * @param className the name of the class that has been removed
-     */
-    @Override
-    protected void classRemoved(final String className) {
-        System.err.println("!!!!!!!!!!!!!!!!!!!!!");
-        System.err.println("Class "+className+" has been reclaimed.");
-        System.err.println("!!!!!!!!!!!!!!!!!!!!!");
     }
 }

@@ -15,9 +15,4 @@ public class JvmDynamicClassLoader extends DynamicClassLoader {
             final Object srcForm) {
         return defineClass(name,bytes,0,bytes.length);
     }
-
-    @Override
-    protected void classRemoved(final String className) {
-        // do nothing
-    }
 }
