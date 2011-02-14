@@ -419,6 +419,11 @@ static public void load(String scriptbase, boolean failIfNotFound) throws Except
 
 static void doInit() throws Exception{
 	load("clojure/core");
+        if(VM_TYPE.deref() != DALVIK_VM) {
+            load("clojure/zip", false);
+            load("clojure/xml", false);
+            load("clojure/set", false);
+        }
 
 	Var.pushThreadBindings(
 			RT.map(CURRENT_NS, CURRENT_NS.deref(),
