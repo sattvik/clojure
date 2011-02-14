@@ -42,7 +42,7 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
         Log.d(TAG,"compileDir= "+compileDir.getAbsolutePath());
         try {
             final File jarFile =
-                    File.createTempFile("repl", ".jar", compileDir);
+                    File.createTempFile("repl-", ".jar", compileDir);
             Log.d(TAG,"jarFile= "+jarFile.getAbsolutePath());
             jarFile.deleteOnExit();
             final ZipOutputStream jarOut =
