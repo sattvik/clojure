@@ -54,7 +54,7 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
             final DexFile inDexFile = DexFile.loadDex(jarPath, dexPath, 0);
             Class<?> clazz = inDexFile.loadClass(name.replace(".", "/"), this);
             if (clazz == null) {
-                Log.wtf(TAG,"Failed to load generated class: "+name);
+                Log.e(TAG,"Failed to load generated class: "+name);
                 throw new RuntimeException(
                         "Failed to load generated class " + name + ".");
             }

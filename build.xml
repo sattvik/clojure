@@ -9,7 +9,7 @@
   </description>
 
 
-  <property name="android.version" value="9"/>
+  <property name="android.version" value="7"/>
   <property name="android.sdk.dir" location="/opt/android-sdk-update-manager"/>
   <property name="android.platform-tools.dir" location="${android.sdk.dir}/platform-tools"/>
   <property name="android.platform.dir" location="${android.sdk.dir}/platforms/android-${android.version}"/>
