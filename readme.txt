@@ -1,3 +1,60 @@
+Clojure for Android(tm)
+=======================
+
+Building
+--------
+
+In order to build Clojure with Android support, you will most likely need to
+copy the included 'local.properties.example' file to 'local.properties' and
+edit the following properties:
+
+  android.enabled  Must be set to 'true' to enable Android support.
+
+  android.version  The version of the Android SDK with which to build.  This
+                   should be a number.  The minimum supported version is 7.
+
+  android.sdk.dir  The root directory of your Android SDK installation.
+
+You may optionally define the property 'proguard.jar' and set it to the
+location of ProGuard's 'proguard.jar'.  This will enable the use of
+ProGuard to perform a better minification of the bundled dx.jar, resulting in
+a smaller Clojure jar file.
+
+
+New Jar files
+-------------
+
+When Android support is enabled, Ant will build a couple extra files of
+interest to Android developers:
+
+clojure-nosrc.jar:
+  Just like 'clojure.jar', but without source files.
+
+clojure-dex.jar:
+  A version of 'clojure-nosrc.jar' with all classes compiled into a Dalvik
+  executable.  This file may be used with one of Android's class loaders.
+
+
+Legal stuff
+-----------
+
+Copyright © 2011 Sattvik Software & Technology Resources
+All rights reserved.
+
+The use and distribution terms for this software are covered by the Eclipse
+Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can
+be found in the file epl-v10.html at the root of this distribution.  By using
+this software in any fashion, you are agreeing to be bound by the terms of
+this license.  You must not remove this notice, or any other, from this
+software.
+
+Android is a trademark of Google Inc. Use of this trademark is subject to
+Google Permissions.
+
+
+Original readme
+---------------
+
  *   Clojure
  *   Copyright (c) Rich Hickey. All rights reserved.
  *   The use and distribution terms for this software are covered by the
