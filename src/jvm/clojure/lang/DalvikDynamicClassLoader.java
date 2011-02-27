@@ -86,7 +86,7 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
             outDexFile.writeTo(jarOut, null, false);
             jarOut.close();
 
-            // open the jar and created an optimized dex file
+            // open the jar and create an optimized dex file
             final String jarPath = jarFile.getAbsolutePath();
             final String dexPath =
                     jarPath.substring(0, jarPath.lastIndexOf('.'))
