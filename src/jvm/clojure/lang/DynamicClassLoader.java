@@ -9,71 +9,72 @@
  **/
 
 /* rich Aug 21, 2007 */
+
 package clojure.lang;
 
-import java.lang.ref.ReferenceQueue;
-import java.lang.ref.SoftReference;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.net.URLClassLoader;
+import java.net.URL;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.SoftReference;
 
 public abstract class DynamicClassLoader extends URLClassLoader {
-    private static ConcurrentHashMap<String, SoftReference<Class>> classCache =
-            new ConcurrentHashMap<String, SoftReference<Class>>();
-    private static final ReferenceQueue<Class> rq = new ReferenceQueue<Class>();
-    private static final URL[] EMPTY_URLS = new URL[]{};
-    HashMap<Integer, Object[]> constantVals = new HashMap<Integer, Object[]>();
+HashMap<Integer, Object[]> constantVals = new HashMap<Integer, Object[]>();
+static ConcurrentHashMap<String, SoftReference<Class>>classCache =
+        new ConcurrentHashMap<String, SoftReference<Class> >();
 
-    public DynamicClassLoader() {
-        //pseudo test in lieu of hasContextClassLoader()
-        super(EMPTY_URLS,
-              (Thread.currentThread().getContextClassLoader() == null
-               || Thread.currentThread().getContextClassLoader() == ClassLoader
-                      .getSystemClassLoader()) ? Compiler.class.getClassLoader()
-                                               : Thread.currentThread()
-                                                       .getContextClassLoader());
-    }
+static final URL[] EMPTY_URLS = new URL[]{};
 
-    public DynamicClassLoader(final ClassLoader parent) {
-        super(EMPTY_URLS, parent);
-    }
+static final ReferenceQueue rq = new ReferenceQueue();
 
-    public final Class defineClass(String name, byte[] bytes, Object srcForm) {
-        //cleanup any dead entries
-        Util.clearCache(rq,classCache);
-        Class c = defineMissingClass(name, bytes, srcForm);
-        classCache.put(name, new SoftReference<Class>(c, rq));
-        return c;
-    }
+public DynamicClassLoader(){
+    //pseudo test in lieu of hasContextClassLoader()
+	super(EMPTY_URLS,(Thread.currentThread().getContextClassLoader() == null ||
+                Thread.currentThread().getContextClassLoader() == ClassLoader.getSystemClassLoader())?
+                Compiler.class.getClassLoader():Thread.currentThread().getContextClassLoader());
+}
 
-    protected abstract Class<?> defineMissingClass(final String name,
-            final byte[] bytes, final Object srcForm);
+public DynamicClassLoader(ClassLoader parent){
+	super(EMPTY_URLS,parent);
+}
 
-    public final void registerConstants(int id, Object[] val) {
-        constantVals.put(id, val);
-    }
+public final Class defineClass(String name, byte[] bytes, Object srcForm){
+	Util.clearCache(rq, classCache);
+    Class c = defineMissingClass(name, bytes, srcForm);
+    classCache.put(name, new SoftReference(c,rq));
+    return c;
+}
 
-    public final Object[] getConstants(int id) {
-        return constantVals.get(id);
-    }
+protected abstract Class<?> defineMissingClass(final String name,
+        final byte[] bytes, final Object srcForm);
 
-    @Override
-    protected Class<?> findClass(String name) throws ClassNotFoundException {
-        SoftReference<Class> cr = classCache.get(name);
-        if (cr != null) {
-            Class c = cr.get();
-            if (c != null) {
-                return c;
-            } else {
-                classCache.remove(name, cr);
-            }
-        }
-        return super.findClass(name);
-    }
-    @Override
-    public final void addURL(URL url) {
-        super.addURL(url);
-    }
+@Override
+protected Class<?> findClass(String name) throws ClassNotFoundException{
+    SoftReference<Class> cr = classCache.get(name);
+	if(cr != null)
+		{
+		Class c = cr.get();
+        if(c != null)
+            return c;
+		else
+	        classCache.remove(name, cr);
+		}
+	return super.findClass(name);
+}
+
+public final void registerConstants(int id, Object[] val) {
+	constantVals.put(id, val);
+}
+
+public final Object[] getConstants(int id) {
+	return constantVals.get(id);
+}
+
+@Override
+public final void addURL(URL url) {
+	super.addURL(url);
+}
+
 }
