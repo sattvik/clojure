@@ -1,0 +1,4 @@
+android.enabled=true
+android.version=7
+android.sdk.dir=/opt/android-sdk-update-manager
+#proguard.jar=/path/to//proguard.jar
