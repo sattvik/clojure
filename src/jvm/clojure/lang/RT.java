@@ -12,7 +12,6 @@
 
 package clojure.lang;
 
-import android.util.Log;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Callable;
 import java.util.*;
@@ -20,6 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.io.*;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -228,7 +228,6 @@ static {
         int version = sdkIntField.getInt(null);
         if(version > 0 && version < 8) {
             needsWorkaround=true;
-            Log.d("Clojure","Activating pre-FroYo workaround.");
         }
     } catch(Exception ignored) {
         // ignored -- eclair not detected
@@ -1573,7 +1572,13 @@ static public ClassLoader makeClassLoader(){
             Var.pushThreadBindings(RT.map(USE_CONTEXT_CLASSLOADER, RT.T));
 //			getRootClassLoader();
                 if(VM_TYPE.deref()==DALVIK_VM) {
-                    return new DalvikDynamicClassLoader(baseLoader());
+                    try {
+                        final Class<?> loaderClass=Class.forName("clojure.lang.DalvikDynamicClassLoader");
+                        final Constructor<?> constructor=loaderClass.getConstructor(ClassLoader.class);
+                        return constructor.newInstance(baseLoader());
+                    } catch(Exception e) {
+                        throw new RuntimeException("Unable to load Dalvik dynamic classloader.",e);
+                    }
                 } else {
 			return new JvmDynamicClassLoader(baseLoader());
                 }
