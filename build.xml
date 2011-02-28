@@ -285,6 +285,9 @@
               <include name="**/*.class"/>
               <include name="clojure/version.properties"/>
           </zipfileset>
+          <zipfileset src="${dx-lite.jar}">
+              <include name="**/*.class"/>
+          </zipfileset>
           <manifest>
               <attribute name="Main-Class" value="clojure.main"/>
               <attribute name="Class-Path" value="."/>
@@ -298,7 +301,6 @@
           <arg value="--dex"/>
           <arg value="--output=${dex.file}" />
           <arg path="${nosrc_jar}"/>
-          <arg path="${dx-lite.jar}"/>
       </exec>
   </target>
 
