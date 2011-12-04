@@ -161,7 +161,7 @@
   [& options]
   (let [cl (.getContextClassLoader (Thread/currentThread))]
     (.setContextClassLoader (Thread/currentThread)
-                            (if (= *vm-type* :dalvik-vm)
+                            (if (= vm-type :dalvik-vm)
                               (let [cl-class (Class/forName "clojure.lang.DalvikDynamicClassLoader")
                                     cl-constructor (.getConstructor cl-class (into-array [ClassLoader]))]
                                 (.newInstance cl-constructor cl))

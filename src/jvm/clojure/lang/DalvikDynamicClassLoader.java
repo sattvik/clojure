@@ -13,6 +13,7 @@ package clojure.lang;
 import android.util.Log;
 import com.android.dx.dex.cf.CfOptions;
 import com.android.dx.dex.cf.CfTranslator;
+import com.android.dx.dex.DexOptions;
 import dalvik.system.DexFile;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -34,10 +35,14 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
     /** Reference to compile path var, used for generated jar files. */
     private static final Var COMPILE_PATH =
             RT.var("clojure.core", "*compile-path*");
+    /** Configure whether or not to use extended op codes. */
+    private static final DexOptions DEX_OPTIONS = new DexOptions();
 
     static {
         // disable name checks
         OPTIONS.strictNameCheck = false;
+	// ensure generation of compatible DEX files
+	DEX_OPTIONS.targetApiLevel = android.os.Build.VERSION.SDK_INT;
     }
 
     /** Tag used for logging. */
@@ -70,8 +75,8 @@ public class DalvikDynamicClassLoader extends DynamicClassLoader {
             final Object srcForm) {
         // create dx DexFile and add translated class into it
         final com.android.dx.dex.file.DexFile outDexFile =
-                new com.android.dx.dex.file.DexFile();
-        outDexFile.add(CfTranslator.translate("", bytes, OPTIONS));
+                new com.android.dx.dex.file.DexFile(DEX_OPTIONS);
+        outDexFile.add(CfTranslator.translate("", bytes, OPTIONS, DEX_OPTIONS));
 
         // get compile directory
         final File compileDir = new File((String) COMPILE_PATH.deref());

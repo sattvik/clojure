@@ -20,9 +20,6 @@
   <property name="android.platform.dir" location="${android.sdk.dir}/platforms/android-${android.version}"/>
   <property name="android.jar" location="${android.platform.dir}/android.jar"/>
   <property name="dx" location="${android.platform-tools.dir}/dx"/>
-  <property name="dx.jar" location="${android.platform-tools.dir}/lib/dx.jar"/>
-  <property name="dx-lite.jar" location="dx-lite.jar"/>
-  <property name="android.jar" location="${android.sdk.dir}/platform-tools"/>
   <property name="dex.file" location="classes.dex"/>
 
   <property name="src" location="src"/>
@@ -104,40 +101,6 @@
   	<chmod file="pom.xml" perm="ugo-w"/>
   </target>
 
-  <target name="-check-proguard" depends="init">
-    <available property="proguard.available"
-      classpath="${proguard.jar}" classname="proguard.ProGuard"/>
-  </target>
-
-  <target name="-shrink-dx-jar" depends="-check-proguard"
-          if="proguard.available">
-    <echo>ProGuard available, shrinking to create dx-lite.jar</echo>
-    <taskdef resource="proguard/ant/task.properties"
-      classpath="${proguard.jar}"/>
-    <proguard>
-      -injars ${dx.jar}
-      -outjar ${dx-lite.jar}
-      -libraryjars ${android.jar}
-      @dx-proguard.cfg
-    </proguard>
-  </target>
-
-  <target name="-copy-dx-jar" depends="-check-proguard"
-          unless="proguard.available">
-    <echo>No ProGuard available, using simple copy to create dx-lite.jar</echo>
-    <jar jarfile="${dx-lite.jar}">
-      <zipfileset src="${dx.jar}">
-        <exclude name="junit/**"/>
-        <exclude name="META-INF/**"/>
-        <exclude name="**/_tests"/>
-        <exclude name="**/_tests/_*.class"/>
-      </zipfileset>
-    </jar>
-  </target>
-
-  <target name="dx-lite" depends="-shrink-dx-jar,-copy-dx-jar"
-      description="Creates a stripped version of dx.jar"/>
-
   <macrodef name="compile-java">
     <element name="compile-elements"
              implicit="yes"
@@ -158,14 +121,15 @@
     <compile-java>
       <include name="**/*.java"/>
       <exclude name="**/Dalvik*.java"/>
+      <exclude name="com/android/**/*.java"/>
     </compile-java>
   </target>
 
-  <target name="-compile-java-dalvik" depends="init,dx-lite" if="android.enabled">
+  <target name="-compile-java-dalvik" depends="init" if="${android.enabled}">
     <compile-java>
       <include name="**/Dalvik*.java"/>
+      <include name="com/android/**/*.java"/>
       <classpath>
-        <pathelement path="${dx-lite.jar}"/>
         <pathelement path="${android.jar}"/>
       </classpath>
     </compile-java>
@@ -279,14 +243,11 @@
     <copy file="${src_jar}" tofile="${src_noversion_jar}" />
   </target>
 
-  <target name="clojure-jar-no-sources" depends="clojure-jar" if="android.enabled">
+  <target name="clojure-jar-no-sources" depends="clojure-jar" if="${android.enabled}">
       <jar jarfile="${nosrc_jar}">
           <zipfileset src="${clojure_jar}">
               <include name="**/*.class"/>
               <include name="clojure/version.properties"/>
-          </zipfileset>
-          <zipfileset src="${dx-lite.jar}">
-              <include name="**/*.class"/>
           </zipfileset>
           <manifest>
               <attribute name="Main-Class" value="clojure.main"/>
@@ -296,7 +257,7 @@
       <copy file="${nosrc_jar}" tofile="${nosrc_noversion_jar}" />
   </target>
 
-  <target name="dex" depends="clojure-jar-no-sources" if="android.enabled">
+  <target name="dex" depends="clojure-jar-no-sources" if="${android.enabled}">
       <exec executable="${dx}" failonerror="true">
           <arg value="--dex"/>
           <arg value="--output=${dex.file}" />
@@ -304,7 +265,7 @@
       </exec>
   </target>
 
-  <target name="clojure-jar-dex" depends="dex" if="android.enabled">
+  <target name="clojure-jar-dex" depends="dex" if="${android.enabled}">
       <jar jarfile="${dex_jar}">
           <fileset dir="${cljsrc}" includes="clojure/version.properties"/>
           <mappedresources>
@@ -324,7 +285,6 @@
     <delete dir="${dist}"/>
     <delete file="pom.xml"/>
     <delete file="${dex.file}"/>
-    <delete file="${dx-lite.jar}"/>
     <delete verbose="true">
       <fileset dir="${basedir}" includes="*.jar"/>
       <fileset dir="${basedir}" includes="*.zip"/>

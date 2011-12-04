@@ -187,7 +187,7 @@ final static public Var MATH_CONTEXT = Var.intern(CLOJURE_NS, Symbol.create("*ma
 static Keyword DALVIK_VM = Keyword.intern(null, "dalvik-vm");
 static Keyword JAVA_VM = Keyword.intern(null, "java-vm");
 final static public Var VM_TYPE =
-        Var.intern(CLOJURE_NS, Symbol.create("*vm-type*"),
+        Var.intern(CLOJURE_NS, Symbol.create("vm-type"),
                    (System.getProperty("java.vm.name").equals("Dalvik")) ? DALVIK_VM : JAVA_VM);
 static Keyword LINE_KEY = Keyword.intern(null, "line");
 static Keyword FILE_KEY = Keyword.intern(null, "file");
