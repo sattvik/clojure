@@ -21,7 +21,7 @@ import java.net.URL;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.SoftReference;
 
-public class DynamicClassLoader extends URLClassLoader{
+public abstract class DynamicClassLoader extends URLClassLoader {
 HashMap<Integer, Object[]> constantVals = new HashMap<Integer, Object[]>();
 static ConcurrentHashMap<String, Reference<Class>>classCache =
         new ConcurrentHashMap<String, Reference<Class> >();
@@ -41,13 +41,17 @@ public DynamicClassLoader(ClassLoader parent){
 	super(EMPTY_URLS,parent);
 }
 
-public Class defineClass(String name, byte[] bytes, Object srcForm){
+public final Class defineClass(String name, byte[] bytes, Object srcForm){
 	Util.clearCache(rq, classCache);
-	Class c = defineClass(name, bytes, 0, bytes.length);
+    Class c = defineMissingClass(name, bytes, srcForm);
     classCache.put(name, new SoftReference(c,rq));
     return c;
 }
 
+protected abstract Class<?> defineMissingClass(final String name,
+        final byte[] bytes, final Object srcForm);
+
+@Override
 protected Class<?> findClass(String name) throws ClassNotFoundException{
     Reference<Class> cr = classCache.get(name);
 	if(cr != null)
@@ -61,15 +65,16 @@ protected Class<?> findClass(String name) throws ClassNotFoundException{
 	return super.findClass(name);
 }
 
-public void registerConstants(int id, Object[] val){
+public final void registerConstants(int id, Object[] val) {
 	constantVals.put(id, val);
 }
 
-public Object[] getConstants(int id){
+public final Object[] getConstants(int id) {
 	return constantVals.get(id);
 }
 
-public void addURL(URL url){
+@Override
+public final void addURL(URL url) {
 	super.addURL(url);
 }
 

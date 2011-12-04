@@ -20,6 +20,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.io.*;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.security.AccessController;
@@ -184,6 +186,11 @@ final static public Var AGENT = Var.intern(CLOJURE_NS, Symbol.intern("*agent*"),
 final static public Var READEVAL = Var.intern(CLOJURE_NS, Symbol.intern("*read-eval*"), T).setDynamic();
 final static public Var ASSERT = Var.intern(CLOJURE_NS, Symbol.intern("*assert*"), T).setDynamic();
 final static public Var MATH_CONTEXT = Var.intern(CLOJURE_NS, Symbol.intern("*math-context*"), null).setDynamic();
+static Keyword DALVIK_VM = Keyword.intern(null, "dalvik-vm");
+static Keyword JAVA_VM = Keyword.intern(null, "java-vm");
+final static public Var VM_TYPE =
+        Var.intern(CLOJURE_NS, Symbol.create("vm-type"),
+                   (System.getProperty("java.vm.name").equals("Dalvik")) ? DALVIK_VM : JAVA_VM);
 static Keyword LINE_KEY = Keyword.intern(null, "line");
 static Keyword FILE_KEY = Keyword.intern(null, "file");
 static Keyword DECLARED_KEY = Keyword.intern(null, "declared");
@@ -219,6 +226,24 @@ final static Var FN_LOADER_VAR = Var.intern(CLOJURE_NS, Symbol.intern("*fn-loade
 static final Var PRINT_INITIALIZED = Var.intern(CLOJURE_NS, Symbol.intern("print-initialized"));
 static final Var PR_ON = Var.intern(CLOJURE_NS, Symbol.intern("pr-on"));
 //final static Var IMPORTS = Var.intern(CLOJURE_NS, Symbol.intern("*imports*"), DEFAULT_IMPORTS);
+
+private static final boolean ECLAIR_WORKAROUND;
+
+static {
+    boolean needsWorkaround=false;
+    try {
+        Class<?> versionClass = Class.forName("android.os.Build$VERSION");
+        Field sdkIntField = versionClass.getField("SDK_INT");
+        int version = sdkIntField.getInt(null);
+        if(version > 0 && version < 8) {
+            needsWorkaround=true;
+        }
+    } catch(Exception ignored) {
+        // ignored -- eclair not detected
+    }
+    ECLAIR_WORKAROUND=needsWorkaround;
+}
+
 final static IFn inNamespace = new AFn(){
 	public Object invoke(Object arg1) {
 		Symbol nsname = (Symbol) arg1;
@@ -433,22 +458,24 @@ static public void load(String scriptbase, boolean failIfNotFound) throws IOExce
 static void doInit() throws ClassNotFoundException, IOException{
 	load("clojure/core");
 
-	Var.pushThreadBindings(
-			RT.map(CURRENT_NS, CURRENT_NS.deref(),
-			       WARN_ON_REFLECTION, WARN_ON_REFLECTION.deref()
-					,RT.UNCHECKED_MATH, RT.UNCHECKED_MATH.deref()));
-	try {
-		Symbol USER = Symbol.intern("user");
-		Symbol CLOJURE = Symbol.intern("clojure.core");
+	if(VM_TYPE.deref() == JAVA_VM) {
+		Var.pushThreadBindings(
+				RT.map(CURRENT_NS, CURRENT_NS.deref(),
+				       WARN_ON_REFLECTION, WARN_ON_REFLECTION.deref()
+						,RT.UNCHECKED_MATH, RT.UNCHECKED_MATH.deref()));
+		try {
+			Symbol USER = Symbol.intern("user");
+			Symbol CLOJURE = Symbol.intern("clojure.core");
 
-		Var in_ns = var("clojure.core", "in-ns");
-		Var refer = var("clojure.core", "refer");
-		in_ns.invoke(USER);
-		refer.invoke(CLOJURE);
-		maybeLoadResourceScript("user.clj");
-	}
-	finally {
-		Var.popThreadBindings();
+			Var in_ns = var("clojure.core", "in-ns");
+			Var refer = var("clojure.core", "refer");
+			in_ns.invoke(USER);
+			refer.invoke(CLOJURE);
+			maybeLoadResourceScript("user.clj");
+		}
+		finally {
+			Var.popThreadBindings();
+		}
 	}
 }
 
@@ -1978,7 +2005,18 @@ static public ClassLoader makeClassLoader(){
             try{
             Var.pushThreadBindings(RT.map(USE_CONTEXT_CLASSLOADER, RT.T));
 //			getRootClassLoader();
-			return new DynamicClassLoader(baseLoader());
+                if(VM_TYPE.deref()==DALVIK_VM) {
+                    try {
+                        final Class<?> loaderClass=Class.forName("clojure.lang.DalvikDynamicClassLoader");
+                        final Constructor<?> constructor=loaderClass.getConstructor(ClassLoader.class);
+                        return constructor.newInstance(baseLoader());
+                    } catch(Exception e) {
+                        throw new RuntimeException("Unable to load Dalvik dynamic classloader.",e);
+                    }
+                } else {
+			return new JvmDynamicClassLoader(baseLoader());
+                }
+
             }
                 finally{
             Var.popThreadBindings();
@@ -1987,11 +2025,20 @@ static public ClassLoader makeClassLoader(){
 	});
 }
 
+
 static public ClassLoader baseLoader(){
 	if(Compiler.LOADER.isBound())
 		return (ClassLoader) Compiler.LOADER.deref();
-	else if(booleanCast(USE_CONTEXT_CLASSLOADER.deref()))
-		return Thread.currentThread().getContextClassLoader();
+	else if(booleanCast(USE_CONTEXT_CLASSLOADER.deref())) {
+            final Thread currentThread = Thread.currentThread();
+            ClassLoader contextLoader = currentThread.getContextClassLoader();
+            if(ECLAIR_WORKAROUND
+               && contextLoader==ClassLoader.getSystemClassLoader()) {
+                contextLoader = Compiler.class.getClassLoader();
+                currentThread.setContextClassLoader(contextLoader);
+            }
+            return contextLoader;
+        }
 	return Compiler.class.getClassLoader();
 }
 
