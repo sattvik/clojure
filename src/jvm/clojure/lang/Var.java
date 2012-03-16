@@ -61,6 +61,13 @@ static class Frame{
 		this.bindings = bindings;
 		this.prev = prev;
 	}
+
+    	protected Object clone() {
+		Frame f = new Frame();
+		f.bindings = this.bindings;
+		return f;
+    	}
+
 }
 
 static final ThreadLocal<Frame> dvals = new ThreadLocal<Frame>(){
@@ -92,6 +99,13 @@ public static Object getThreadBindingFrame(){
 	Frame f = dvals.get();
 	if(f != null)
 		return f;
+	return new Frame();
+}
+
+public static Object cloneThreadBindingFrame(){
+	Frame f = dvals.get();
+	if(f != null)
+		return f.clone();
 	return new Frame();
 }
 
@@ -240,7 +254,7 @@ public void setMacro() {
         }
     catch (Exception e)
         {
-        throw Util.runtimeException(e);
+        throw Util.sneakyThrow(e);
         }
 }
 
@@ -271,7 +285,7 @@ public void setTag(Symbol tag) {
         }
     catch (Exception e)
         {
-        throw Util.runtimeException(e);
+        throw Util.sneakyThrow(e);
         }
 }
 
@@ -291,7 +305,7 @@ synchronized public void bindRoot(Object root){
         }
     catch (Exception e)
         {
-        throw Util.runtimeException(e);
+        throw Util.sneakyThrow(e);
         }
     notifyWatches(oldroot,this.root);
 }
@@ -389,7 +403,7 @@ public void run(){
 		}
 	catch(Exception e)
 		{
-		throw Util.runtimeException(e);
+		throw Util.sneakyThrow(e);
 		}
 }
 
@@ -533,7 +547,7 @@ static IFn dissoc = new AFn() {
 		    }
 	    catch(Exception e)
 		    {
-		    return Util.runtimeException(e);
+            throw Util.sneakyThrow(e);
 		    }
     }
 };

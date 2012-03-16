@@ -169,14 +169,29 @@ static public <K,V> void clearCache(ReferenceQueue rq, ConcurrentHashMap<K, Refe
 static public RuntimeException runtimeException(String s){
 	return new RuntimeException(s);
 }
+
 static public RuntimeException runtimeException(String s, Throwable e){
 	return new RuntimeException(s, e);
 }
 
-static public RuntimeException runtimeException(Throwable e){
-	if(e instanceof RuntimeException)
-		return (RuntimeException)e;
-	return new RuntimeException(e);
+/**
+ * Throw even checked exceptions without being required
+ * to declare them or catch them. Suggested idiom:
+ * <p>
+ * <code>throw sneakyThrow( some exception );</code>
+ */
+static public RuntimeException sneakyThrow(Throwable t) {
+    // http://www.mail-archive.com/javaposse@googlegroups.com/msg05984.html
+	if (t == null)
+		throw new NullPointerException();
+	Util.<RuntimeException>sneakyThrow0(t);
+	return null;
+}
+
+@SuppressWarnings("unchecked")
+static private <T extends Throwable> void sneakyThrow0(Throwable t) throws T {
+	throw (T) t;
 }
 
 }
+

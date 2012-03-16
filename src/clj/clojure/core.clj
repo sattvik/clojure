@@ -264,9 +264,10 @@
 
  ^{:doc "Same as (def name (fn [params* ] exprs*)) or (def
     name (fn ([params* ] exprs*)+)) with any doc-string or attrs added
-    to the var metadata"
-   :arglists '([name doc-string? attr-map? [params*] body]
-                [name doc-string? attr-map? ([params*] body)+ attr-map?])
+    to the var metadata. prepost-map defines a map with optional keys
+    :pre and :post that contain collections of pre or post conditions."
+   :arglists '([name doc-string? attr-map? [params*] prepost-map? body]
+                [name doc-string? attr-map? ([params*] prepost-map? body)+ attr-map?])
    :added "1.0"}
  defn (fn defn [&form &env name & fdecl]
         (let [m (if (string? (first fdecl))
@@ -1811,7 +1812,7 @@
   {:private true
    :added "1.3"}
   [f]
-  (let [frame (clojure.lang.Var/getThreadBindingFrame)]
+  (let [frame (clojure.lang.Var/cloneThreadBindingFrame)]
     (fn 
       ([]
          (clojure.lang.Var/resetThreadBindingFrame frame)
@@ -3764,7 +3765,9 @@
           nspublics (ns-publics ns)
           rename (or (:rename fs) {})
           exclude (set (:exclude fs))
-          to-do (or (:only fs) (keys nspublics))]
+          to-do (if (= :all (:refer fs))
+                  (keys nspublics)
+                  (or (:refer fs) (:only fs) (keys nspublics)))]
       (doseq [sym to-do]
         (when-not (exclude sym)
           (let [v (nspublics sym)]
@@ -4219,6 +4222,26 @@
   [& xs]
     (with-out-str
      (apply println xs)))
+
+(import clojure.lang.ExceptionInfo)
+(defn ex-info
+  "Alpha - subject to change.
+   Create an instance of ExceptionInfo, a RuntimeException subclass
+   that carries a map of additional data."
+  {:added "1.4"}
+  ([msg map]
+     (ExceptionInfo. msg map))
+  ([msg map cause]
+     (ExceptionInfo. msg map cause)))
+
+(defn ex-data
+  "Alpha - subject to change.
+   Returns exception data (a map) if ex is an ExceptionInfo.
+   Otherwise returns nil."
+  {:added "1.4"}
+  [ex]
+  (when (instance? ExceptionInfo ex)
+    (.getData ^ExceptionInfo ex)))
 
 (defmacro assert
   "Evaluates expr and throws an exception if it does not evaluate to
@@ -5235,7 +5258,7 @@
                    (or reload (not require) (not loaded))
                    load-one)
         need-ns (or as use)
-        filter-opts (select-keys opts '(:exclude :only :rename))]
+        filter-opts (select-keys opts '(:exclude :only :rename :refer))]
     (binding [*loading-verbosely* (or *loading-verbosely* verbose)]
       (if load
         (load lib need-ns require)
@@ -5247,7 +5270,7 @@
         (when *loading-verbosely*
           (printf "(clojure.core/alias '%s '%s)\n" as lib))
         (alias as lib))
-      (when use
+      (when (or use (:refer filter-opts))
         (when *loading-verbosely*
           (printf "(clojure.core/refer '%s" lib)
           (doseq [opt filter-opts]
@@ -5263,7 +5286,7 @@
         opts (interleave flags (repeat true))
         args (filter (complement keyword?) args)]
     ; check for unsupported options
-    (let [supported #{:as :reload :reload-all :require :use :verbose} 
+    (let [supported #{:as :reload :reload-all :require :use :verbose :refer}
           unsupported (seq (remove supported flags))]
       (throw-if unsupported
                 (apply str "Unsupported option(s) supplied: "
@@ -5322,9 +5345,11 @@
   A libspec is a lib name or a vector containing a lib name followed by
   options expressed as sequential keywords and arguments.
 
-  Recognized options: :as
+  Recognized options:
   :as takes a symbol as its argument and makes that symbol an alias to the
     lib's namespace in the current namespace.
+  :refer takes a list of symbols to refer from the namespace or the :all
+    keyword to bring in all public vars.
 
   Prefix Lists
 
@@ -5682,6 +5707,15 @@
   coercions will be done without overflow checks. Default: false."
   {:added "1.3"})
 
+(add-doc-and-meta *compiler-options*
+  "A map of keys to options.
+  Note, when binding dynamically make sure to merge with previous value.
+  Supported options:
+  :elide-meta - a collection of metadata keys to elide during compilation.
+  :disable-locals-clearing - set to true to disable clearing, useful for using a debugger
+  Alpha, subject to change."
+  {:added "1.4"})
+
 (add-doc-and-meta *ns*
   "A clojure.lang.Namespace object representing the current namespace."
   {:added "1.0"})
@@ -5967,8 +6001,6 @@
           (let [[shift mask imap switch-type skip-check] (prep-hashes ge default tests thens)]
             `(let [~ge ~e] (case* ~ge ~shift ~mask ~default ~imap ~switch-type :hash-identity ~skip-check))))))))
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; helper files ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (alter-meta! (find-ns 'clojure.core) assoc :doc "Fundamental library of the Clojure language")
 (load "core_proxy")
@@ -5977,6 +6009,8 @@
 (load "core_deftype")
 (load "core/protocols")
 (load "gvec")
+(load "instant")
+(load "uuid")
 
 ;; redefine reduce with internal-reduce
 (defn reduce
@@ -6251,7 +6285,7 @@
 (defn flatten
   "Takes any nested combination of sequential things (lists, vectors,
   etc.) and returns their contents as a single, flat sequence.
-  (flatten nil) returns nil."
+  (flatten nil) returns an empty sequence."
   {:added "1.2"
    :static true}
   [x]
@@ -6536,3 +6570,85 @@
   "Returns true if a value has been produced for a promise, delay, future or lazy sequence."
   {:added "1.3"}
   [^clojure.lang.IPending x] (.isRealized x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; data readers ;;;;;;;;;;;;;;;;;;
+
+(def ^{:added "1.4"} default-data-readers
+  "Default map of data reader functions provided by Clojure. May be
+  overridden by binding *data-readers*."
+  {'inst #'clojure.instant/read-instant-date
+   'uuid #'clojure.uuid/default-uuid-reader})
+
+(def ^{:added "1.4" :dynamic true} *data-readers*
+  "Map from reader tag symbols to data reader Vars.
+
+  When Clojure starts, it searches for files named 'data_readers.clj'
+  at the root of the classpath. Each such file must contain pairs of
+  symbols, like this:
+
+      foo/bar my.project.foo/bar
+      foo/baz my.prjoect/baz
+
+  The first symbol in each pair is a tag that will be recognized by
+  the Clojure reader. The second symbol in the pair is the
+  fully-qualified name of a Var which will be invoked by the reader to
+  parse the form following the tag. For example, given the
+  data_readers.clj file above, the Clojure reader would parse this
+  form:
+
+      #foo/bar [1 2 3]
+
+  by invoking the Var #'my.project.foo/bar on the vector [1 2 3]. The
+  data reader function is invoked on the form AFTER it has been read
+  as a normal Clojure data structure by the reader.
+
+  Reader tags without namespace qualifiers are reserved for
+  Clojure. Default reader tags are defined in
+  clojure.core/default-data-readers but may be overridden in
+  data_readers.clj or by rebinding this Var."
+  {})
+
+(defn- data-reader-urls []
+  (enumeration-seq
+   (.. Thread currentThread getContextClassLoader
+       (getResources "data_readers.clj"))))
+
+(defn- data-reader-var [sym]
+  (intern (create-ns (symbol (namespace sym)))
+          (symbol (name sym))))
+
+(defn- load-data-reader-file [mappings ^java.net.URL url]
+  (with-open [rdr (clojure.lang.LineNumberingPushbackReader.
+                   (java.io.InputStreamReader.
+                    (.openStream url) "UTF-8"))]
+    (binding [*file* (.getFile url)]
+      (let [new-mappings (read rdr false nil)]
+        (when (not (map? new-mappings))
+          (throw (ex-info (str "Not a valid data-reader map")
+                          {:url url})))
+        (reduce
+         (fn [m [k v]]
+           (when (not (symbol? k))
+             (throw (ex-info (str "Invalid form in data-reader file")
+                             {:url url
+                              :form k})))
+           (when (contains? mappings k)
+             (throw (ex-info "Conflicting data-reader mapping"
+                             {:url url
+                              :conflict k
+                              :mappings m})))
+           (assoc m k (data-reader-var v)))
+         mappings
+         new-mappings)))))
+
+(defn- load-data-readers []
+  (alter-var-root #'*data-readers*
+                  (fn [mappings]
+                    (reduce load-data-reader-file
+                            mappings (data-reader-urls)))))
+
+(try
+ (load-data-readers)
+ (catch Throwable t
+   (.printStackTrace t)
+   (throw t)))

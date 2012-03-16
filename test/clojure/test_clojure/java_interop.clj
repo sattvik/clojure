@@ -40,6 +40,16 @@
       (. Math abs -7)
       (. Math (abs -7)) )
 
+  ; (. target -prop)
+  (are [x y] (= x y)
+      (let [p (java.awt.Point. 1 2)]
+        1 (.-x p)
+        2 (.-y p)
+        1 (. p -x)
+        2 (. p -y)
+        1 (. (java.awt.Point. 1 2) -x)
+        2 (. (java.awt.Point. 1 2) -y)))
+  
   ; Classname/staticField
   (are [x] (= x 2147483647)
       Integer/MAX_VALUE
@@ -263,6 +273,29 @@
       (to-array [])
       (to-array [1 2 3]) ))
 
+(defn queue [& contents]
+  (apply conj (clojure.lang.PersistentQueue/EMPTY) contents))
+
+(defn array-typed-equals [expected actual]
+  (and (= (class expected) (class actual))
+       (java.util.Arrays/equals expected actual)))
+
+(defmacro test-to-passed-array-for [collection-type]
+  `(deftest ~(symbol (str "test-to-passed-array-for-" collection-type))
+     (let [string-array# (make-array String 5)
+           shorter# (~collection-type "1" "2" "3")
+           same-length# (~collection-type "1" "2" "3" "4" "5")
+           longer# (~collection-type "1" "2" "3" "4" "5" "6")]
+       (are [expected actual] (array-typed-equals expected actual)
+            (into-array String ["1" "2" "3" nil nil]) (.toArray shorter# string-array#)
+            (into-array String ["1" "2" "3" "4" "5"]) (.toArray same-length# string-array#)
+            (into-array String ["1" "2" "3" "4" "5" "6"]) (.toArray longer# string-array#)))))
+
+
+(test-to-passed-array-for vector)
+(test-to-passed-array-for list)
+(test-to-passed-array-for hash-set)
+(test-to-passed-array-for queue)
 
 (deftest test-into-array
   ; compatible types only

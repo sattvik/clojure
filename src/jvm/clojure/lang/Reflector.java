@@ -23,20 +23,21 @@ import java.util.List;
 public class Reflector{
 
 public static Object invokeInstanceMethod(Object target, String methodName, Object[] args) {
-	try
-		{
-		Class c = target.getClass();
-		List methods = getMethods(c, args.length, methodName, false);
-		return invokeMatchingMethod(methodName, methods, target, args);
-		}
-	catch(Exception e)
-		{
-		if(e.getCause() instanceof Exception)
-			throw Util.runtimeException(e.getCause());
-		else if(e.getCause() instanceof Error)
-			throw (Error) e.getCause();
-		throw Util.runtimeException(e);
-		}
+	Class c = target.getClass();
+	List methods = getMethods(c, args.length, methodName, false);
+	return invokeMatchingMethod(methodName, methods, target, args);
+}
+
+private static Throwable getCauseOrElse(Exception e) {
+	if (e.getCause() != null)
+		return e.getCause();
+	return e;
+}
+
+private static RuntimeException throwCauseOrElseException(Exception e) {
+	if (e.getCause() != null)
+		throw Util.sneakyThrow(e.getCause());
+	throw Util.sneakyThrow(e);
 }
 
 private static String noMethodReport(String methodName, Object target){
@@ -93,11 +94,7 @@ static Object invokeMatchingMethod(String methodName, List methods, Object targe
 		}
 	catch(Exception e)
 		{
-		if(e.getCause() instanceof Exception)
-			throw Util.runtimeException(e.getCause());
-		else if(e.getCause() instanceof Error)
-			throw (Error) e.getCause();
-		throw Util.runtimeException(e);
+		throw Util.sneakyThrow(getCauseOrElse(e));
 		}
 
 }
@@ -189,11 +186,7 @@ public static Object invokeConstructor(Class c, Object[] args) {
 		}
 	catch(Exception e)
 		{
-		if(e.getCause() instanceof Exception)
-			throw Util.runtimeException(e.getCause());
-		else if(e.getCause() instanceof Error)
-			throw (Error) e.getCause();
-		throw Util.runtimeException(e);
+		throw Util.sneakyThrow(getCauseOrElse(e));
 		}
 }
 
@@ -204,18 +197,7 @@ public static Object invokeStaticMethodVariadic(String className, String methodN
 
 public static Object invokeStaticMethod(String className, String methodName, Object[] args) {
 	Class c = RT.classForName(className);
-	try
-		{
-		return invokeStaticMethod(c, methodName, args);
-		}
-	catch(Exception e)
-		{
-		if(e.getCause() instanceof Exception)
-			throw Util.runtimeException(e.getCause());
-		else if(e.getCause() instanceof Error)
-			throw (Error) e.getCause();
-		throw Util.runtimeException(e);
-		}
+	return invokeStaticMethod(c, methodName, args);
 }
 
 public static Object invokeStaticMethod(Class c, String methodName, Object[] args) {
@@ -242,7 +224,7 @@ public static Object getStaticField(Class c, String fieldName) {
 			}
 		catch(IllegalAccessException e)
 			{
-			throw Util.runtimeException(e);
+			throw Util.sneakyThrow(e);
 			}
 		}
 	throw new IllegalArgumentException("No matching field found: " + fieldName
@@ -264,7 +246,7 @@ public static Object setStaticField(Class c, String fieldName, Object val) {
 			}
 		catch(IllegalAccessException e)
 			{
-			throw Util.runtimeException(e);
+			throw Util.sneakyThrow(e);
 			}
 		return val;
 		}
@@ -283,7 +265,7 @@ public static Object getInstanceField(Object target, String fieldName) {
 			}
 		catch(IllegalAccessException e)
 			{
-			throw Util.runtimeException(e);
+			throw Util.sneakyThrow(e);
 			}
 		}
 	throw new IllegalArgumentException("No matching field found: " + fieldName
@@ -301,7 +283,7 @@ public static Object setInstanceField(Object target, String fieldName, Object va
 			}
 		catch(IllegalAccessException e)
 			{
-			throw Util.runtimeException(e);
+			throw Util.sneakyThrow(e);
 			}
 		return val;
 		}
@@ -330,7 +312,7 @@ public static Object invokeInstanceMember(Object target, String name) {
 			}
 		catch(IllegalAccessException e)
 			{
-			throw Util.runtimeException(e);
+			throw Util.sneakyThrow(e);
 			}
 		}
 	return invokeInstanceMethod(target, name, RT.EMPTY_ARRAY);
@@ -348,7 +330,7 @@ public static Object invokeInstanceMember(String name, Object target, Object arg
 			}
 		catch(IllegalAccessException e)
 			{
-			throw Util.runtimeException(e);
+			throw Util.sneakyThrow(e);
 			}
 		return arg1;
 		}
