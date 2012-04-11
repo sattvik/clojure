@@ -164,7 +164,7 @@
                             (if (= vm-type :dalvik-vm)
                               (let [cl-class (Class/forName "clojure.lang.DalvikDynamicClassLoader")
                                     cl-constructor (.getConstructor cl-class (into-array [ClassLoader]))]
-                                (.newInstance cl-constructor cl))
+                                (.newInstance cl-constructor (to-array [cl])))
                               (clojure.lang.JvmDynamicClassLoader. cl))))
   (let [{:keys [init need-prompt prompt flush read eval print caught]
          :or {init        #()
