@@ -8,10 +8,74 @@
 
 (ns clojure.core.protocols)
 
+(set! *warn-on-reflection* true)
+
+(defprotocol CollReduce
+  "Protocol for collection types that can implement reduce faster than
+  first/next recursion. Called by clojure.core/reduce. Baseline
+  implementation defined in terms of Iterable."
+  (coll-reduce [coll f] [coll f val]))
+
 (defprotocol InternalReduce
   "Protocol for concrete seq types that can reduce themselves
    faster than first/next recursion. Called by clojure.core/reduce."
   (internal-reduce [seq f start]))
+
+(defn- seq-reduce
+  ([coll f]
+     (if-let [s (seq coll)]
+       (internal-reduce (next s) f (first s))
+       (f)))
+  ([coll f val]
+     (let [s (seq coll)]
+       (internal-reduce s f val))))
+
+(extend-protocol CollReduce
+  nil
+  (coll-reduce
+   ([coll f] (f))
+   ([coll f val] val))
+
+  Object
+  (coll-reduce
+   ([coll f] (seq-reduce coll f))
+   ([coll f val] (seq-reduce coll f val)))
+
+  ;;aseqs are iterable, masking internal-reducers
+  clojure.lang.ASeq
+  (coll-reduce
+   ([coll f] (seq-reduce coll f))
+   ([coll f val] (seq-reduce coll f val)))
+
+  ;;for range
+  clojure.lang.LazySeq
+  (coll-reduce
+   ([coll f] (seq-reduce coll f))
+   ([coll f val] (seq-reduce coll f val)))
+
+  ;;vector's chunked seq is faster than its iter
+  clojure.lang.PersistentVector
+  (coll-reduce
+   ([coll f] (seq-reduce coll f))
+   ([coll f val] (seq-reduce coll f val)))
+  
+  Iterable
+  (coll-reduce
+   ([coll f]
+      (let [iter (.iterator coll)]
+        (if (.hasNext iter)
+          (loop [ret (.next iter)]
+            (if (.hasNext iter)
+              (recur (f ret (.next iter)))
+              ret))
+          (f))))
+   ([coll f val]
+      (let [iter (.iterator coll)]
+        (loop [ret val]
+          (if (.hasNext iter)
+            (recur (f ret (.next iter)))
+            ret)))))
+  )
 
 (extend-protocol InternalReduce
   nil
@@ -92,3 +156,9 @@
 
 (emit-array-impls int long float double byte char boolean)
 
+(defprotocol IKVReduce
+  "Protocol for concrete associative types that can reduce themselves
+   via a function of key and val faster than first/next recursion over map
+   entries. Called by clojure.core/reduce-kv, and has same
+   semantics (just different arg order)."
+  (kv-reduce [amap f init]))

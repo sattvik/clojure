@@ -2544,7 +2544,7 @@
 
 (defn drop-while
   "Returns a lazy sequence of the items in coll starting from the first
-  item for which (pred item) returns nil."
+  item for which (pred item) returns logical false."
   {:added "1.0"
    :static true}
   [pred coll]
@@ -2879,8 +2879,8 @@
 (defn await-for
   "Blocks the current thread until all actions dispatched thus
   far (from this thread or agent) to the agents have occurred, or the
-  timeout (in milliseconds) has elapsed. Returns nil if returning due
-  to timeout, non-nil otherwise."
+  timeout (in milliseconds) has elapsed. Returns logical false if
+  returning due to timeout, logical true otherwise."
   {:added "1.0"
    :static true}
   [timeout-ms & agents]
@@ -5106,7 +5106,7 @@
 
   (ns foo.bar
     (:refer-clojure :exclude [ancestors printf])
-    (:require (clojure.contrib sql sql.tests))
+    (:require (clojure.contrib sql combinatorics))
     (:use (my.lib this that))
     (:import (java.util Date Timer Random)
              (java.sql Connection Statement)))"
@@ -6025,12 +6025,47 @@
   items, returns val and f is not called."
   {:added "1.0"}
   ([f coll]
-     (if-let [s (seq coll)]
-       (reduce f (first s) (next s))
-       (f)))
+     (clojure.core.protocols/coll-reduce coll f))
   ([f val coll]
-     (let [s (seq coll)]
-       (clojure.core.protocols/internal-reduce s f val))))
+     (clojure.core.protocols/coll-reduce coll f val)))
+
+(extend-protocol clojure.core.protocols/IKVReduce
+ ;;slow path default
+ clojure.lang.IPersistentMap
+ (kv-reduce 
+  [amap f init]
+  (reduce (fn [ret [k v]] (f ret k v)) init amap))
+
+ clojure.lang.PersistentHashMap
+ (kv-reduce 
+  [amap f init]
+  (.kvreduce amap f init))
+
+ clojure.lang.PersistentArrayMap
+ (kv-reduce 
+  [amap f init]
+  (.kvreduce amap f init))
+
+ clojure.lang.PersistentTreeMap
+ (kv-reduce 
+  [amap f init]
+  (.kvreduce amap f init))
+
+ clojure.lang.PersistentVector
+ (kv-reduce 
+  [vec f init]
+  (.kvreduce vec f init)))
+
+(defn reduce-kv
+  "Reduces an associative collection. f should be a function of 3
+  arguments. Returns the result of applying f to init, the first key
+  and the first value in coll, then applying f to that result and the
+  2nd key and value, etc. If coll contains no entries, returns init
+  and f is not called. Note that reduce-kv is supported on vectors,
+  where the keys will be the ordinals."  
+  {:added "1.4"}
+  ([f init coll]
+     (clojure.core.protocols/kv-reduce coll f init)))
 
 (defn into
   "Returns a new coll consisting of to-coll with all of the items of
