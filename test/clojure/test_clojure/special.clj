@@ -22,3 +22,12 @@
 ; var
 ; fn
 
+(deftest multiple-keys-in-destructuring
+  (let [foo (fn [& {:keys [x]}] x)
+        bar (fn [& options] (apply foo :x :b options))]
+    (is (= (bar) :b))
+    (is (= (bar :x :a) :a))))
+
+(deftest empty-list-with-:as-destructuring
+  (let [{:as x} '()]
+    (is (= {} x))))

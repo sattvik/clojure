@@ -20,6 +20,7 @@ public abstract class APersistentVector extends AFn implements IPersistentVector
                                                                RandomAccess, Comparable,
                                                                Serializable, IHashEq {
 int _hash = -1;
+int _hasheq = -1;
 
 public String toString(){
 	return RT.printString(this);
@@ -153,6 +154,7 @@ public int hashCode(){
 }
 
 public int hasheq(){
+	if(_hasheq == -1) {
 	int hash = 1;
 	Iterator i = iterator();
 	while(i.hasNext())
@@ -160,7 +162,9 @@ public int hasheq(){
 		Object obj = i.next();
 		hash = 31 * hash + Util.hasheq(obj);
 		}
-	return hash;
+	_hasheq = hash;
+	}
+	return _hasheq;
 }
 
 public Object get(int index){
@@ -498,9 +502,9 @@ public static class RSeq extends ASeq implements IndexedSeq, Counted{
 }
 
 static class SubVector extends APersistentVector implements IObj{
-	final IPersistentVector v;
-	final int start;
-	final int end;
+	public final IPersistentVector v;
+	public final int start;
+	public final int end;
 	final IPersistentMap _meta;
 
 
@@ -520,8 +524,10 @@ static class SubVector extends APersistentVector implements IObj{
 		this.end = end;
 	}
 
+	public Iterator iterator(){return ((PersistentVector)v).rangedIterator(start,end);}
+
 	public Object nth(int i){
-		if(start + i >= end)
+		if((start + i >= end) || (i < 0))
 			throw new IndexOutOfBoundsException();
 		return v.nth(start + i);
 	}

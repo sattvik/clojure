@@ -2,7 +2,13 @@
   (:use clojure.test
         clojure.repl
         [clojure.test-helper :only [platform-newlines]]
-        clojure.test-clojure.repl.example))
+        clojure.test-clojure.repl.example)
+  (:require [clojure.string :as str]))
+
+(deftest test-doc
+  (testing "with namespaces"
+    (is (= "clojure.pprint"
+           (second (str/split-lines (with-out-str (doc clojure.pprint))))))))
 
 (deftest test-source
   (is (= "(defn foo [])" (source-fn 'clojure.test-clojure.repl.example/foo)))
@@ -29,3 +35,17 @@
     (is (some #{'defmacro} (apropos 'defmacro)))
     (is (some #{'defmacro} (apropos 'efmac)))
     (is (= [] (apropos 'nothing-has-this-name)))))
+
+
+(defmacro call-ns 
+  "Call ns with a unique namespace name. Return the result of calling ns"
+  []  `(ns a#))
+(defmacro call-ns-sym 
+  "Call ns wih a unique namespace name. Return the namespace symbol."
+  [] `(do (ns a#) 'a#))
+
+(deftest test-dynamic-ns
+  (testing "a call to ns returns nil"
+   (is (= nil (call-ns))))
+  (testing "requiring a dynamically created ns should not throw an exception"
+    (is (= nil (let [a (call-ns-sym)] (require a))))))

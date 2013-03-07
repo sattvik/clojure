@@ -13,16 +13,17 @@
 package clojure.lang;
 
 import java.io.Serializable;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class PersistentVector extends APersistentVector implements IObj, IEditableCollection{
 
-static class Node implements Serializable {
-	transient final AtomicReference<Thread> edit;
-	final Object[] array;
+public static class Node implements Serializable {
+	transient public final AtomicReference<Thread> edit;
+	public final Object[] array;
 
-	Node(AtomicReference<Thread> edit, Object[] array){
+	public Node(AtomicReference<Thread> edit, Object[] array){
 		this.edit = edit;
 		this.array = array;
 	}
@@ -34,12 +35,12 @@ static class Node implements Serializable {
 }
 
 final static AtomicReference<Thread> NOEDIT = new AtomicReference<Thread>(null);
-final static Node EMPTY_NODE = new Node(NOEDIT, new Object[32]);
+public final static Node EMPTY_NODE = new Node(NOEDIT, new Object[32]);
 
 final int cnt;
-final int shift;
-final Node root;
-final Object[] tail;
+public final int shift;
+public final Node root;
+public final Object[] tail;
 final IPersistentMap _meta;
 
 
@@ -232,18 +233,47 @@ public ISeq seq(){
 	return chunkedSeq();
 }
 
+Iterator rangedIterator(final int start, final int end){
+	return new Iterator(){
+		int i = start;
+		int base = i - (i%32);
+		Object[] array = (start < count())?arrayFor(i):null;
+
+		public boolean hasNext(){
+			return i < end;
+			}
+
+		public Object next(){
+			if(i-base == 32){
+				array = arrayFor(i);
+				base += 32;
+				}
+			return array[i++ & 0x01f];
+			}
+
+		public void remove(){
+			throw new UnsupportedOperationException();
+		}
+	};
+}
+
+public Iterator iterator(){return rangedIterator(0,count());}
+
 public Object kvreduce(IFn f, Object init){
     int step = 0;
     for(int i=0;i<cnt;i+=step){
         Object[] array = arrayFor(i);
-        for(int j =0;j<array.length;++j)
+        for(int j =0;j<array.length;++j){
             init = f.invoke(init,j+i,array[j]);
+            if(RT.isReduced(init))
+	            return ((IDeref)init).deref();
+            }
         step = array.length;
     }
     return init;
 }
 
-static public final class ChunkedSeq extends ASeq implements IChunkedSeq{
+static public final class ChunkedSeq extends ASeq implements IChunkedSeq,Counted{
 
 	public final PersistentVector vec;
 	final Object[] node;
@@ -303,6 +333,10 @@ static public final class ChunkedSeq extends ASeq implements IChunkedSeq{
 		if(offset + 1 < node.length)
 			return new ChunkedSeq(vec, node, i, offset + 1);
 		return chunkedNext();
+	}
+
+	public int count(){
+		return vec.cnt - (i + offset);
 	}
 }
 

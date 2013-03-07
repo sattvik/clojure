@@ -10,6 +10,7 @@
 
 
 (ns clojure.test-clojure.compilation
+  (:import (clojure.lang Compiler Compiler$CompilerException))
   (:use clojure.test
         [clojure.test-helper :only (should-not-reflect should-print-err-message)]))
 
@@ -34,6 +35,9 @@
         (integer? (:line m)) true
         (> (:line m) 0) true
 
+        (integer? (:column m)) true
+        (> (:column m) 0) true
+
         (:macro m) true
         (:name m) 'when )))
 
@@ -54,26 +58,55 @@
 
 (deftest test-no-recur-across-try
   (testing "don't recur to function from inside try"
-    (is (thrown? Exception (eval '(fn [x] (try (recur 1)))))))
+    (is (thrown? Compiler$CompilerException
+                 (eval '(fn [x] (try (recur 1)))))))
   (testing "don't recur to loop from inside try"
-    (is (thrown? Exception (eval '(loop [x] (try (recur 1)))))))
+    (is (thrown? Compiler$CompilerException
+                 (eval '(loop [x 5]
+                          (try (recur 1)))))))
+  (testing "don't recur to loop from inside of catch inside of try"
+    (is (thrown? Compiler$CompilerException
+                 (eval '(loop [x 5]
+                          (try
+                            (catch Exception e
+                              (recur 1))))))))
+  (testing "don't recur to loop from inside of finally inside of try"
+    (is (thrown? Compiler$CompilerException
+                 (eval '(loop [x 5]
+                          (try
+                            (finally
+                              (recur 1))))))))
   (testing "don't get confused about what the recur is targeting"
-    (is (thrown? Exception (eval '(loop [x] (try (fn [x]) (recur 1)))))))
-  (testing "don't allow recur accross binding"
-    (is (thrown? Exception (eval '(fn [x] (binding [+ *] (recur 1)))))))
+    (is (thrown? Compiler$CompilerException
+                 (eval '(loop [x 5]
+                          (try (fn [x]) (recur 1)))))))
+  (testing "don't allow recur across binding"
+    (is (thrown? Compiler$CompilerException
+                 (eval '(fn [x] (binding [+ *] (recur 1)))))))
   (testing "allow loop/recur inside try"
-    (is (try
-          (eval '(try (loop [x 3] (if (zero? x) x (recur (dec x))))))
-          (catch Exception _))))
+    (is (= 0 (eval '(try (loop [x 3]
+                           (if (zero? x) x (recur (dec x)))))))))
+  (testing "allow loop/recur fully inside catch"
+    (is (= 3 (eval '(try
+                      (throw (Exception.))
+                      (catch Exception e
+                        (loop [x 0]
+                          (if (< x 3) (recur (inc x)) x))))))))
+  (testing "allow loop/recur fully inside finally"
+    (is (= "012" (eval '(with-out-str
+                          (try
+                            :return-val-discarded-because-of-with-out-str
+                            (finally (loop [x 0]
+                                       (when (< x 3)
+                                         (print x)
+                                         (recur (inc x)))))))))))
   (testing "allow fn/recur inside try"
-    (is (try
-          (eval '(try
-                   ((fn [x]
-                      (if (zero? x)
-                        x
-                        (recur (dec x))))
-                    3)))
-          (catch Exception _)))))
+    (is (= 0 (eval '(try
+                      ((fn [x]
+                         (if (zero? x)
+                           x
+                           (recur (dec x))))
+                       3)))))))
 
 ;; disabled until build box can call java from mvn
 #_(deftest test-numeric-dispatch

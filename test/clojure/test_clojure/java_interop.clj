@@ -123,6 +123,11 @@
         (:alpha b) 255
         (:transparency b) 1
 
+        (:missing b) nil
+        (:missing b :default) :default
+        (get b :missing) nil
+        (get b :missing :default) :default
+
         (:class b) java.awt.Color )))
 
 
@@ -148,6 +153,12 @@
   (are [x y] (= x y)
       (bases java.lang.Math)
         (list java.lang.Object)
+      (bases java.util.Collection)
+        (list java.lang.Iterable)
+      (bases java.lang.Object)
+        nil
+      (bases java.lang.Comparable)
+        nil
       (bases java.lang.Integer)
         (list java.lang.Number java.lang.Comparable) ))
 

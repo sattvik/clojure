@@ -21,7 +21,7 @@ import java.util.Iterator;
  * so no reversing or suspensions required for persistent use
  */
 
-public class PersistentQueue extends Obj implements IPersistentList, Collection, Counted{
+public class PersistentQueue extends Obj implements IPersistentList, Collection, Counted, IHashEq{
 
 final public static PersistentQueue EMPTY = new PersistentQueue(null, 0, null, null);
 
@@ -31,6 +31,7 @@ final ISeq f;
 final PersistentVector r;
 //static final int INITIAL_REAR_SIZE = 4;
 int _hash = -1;
+int _hasheq = -1;
 
 PersistentQueue(IPersistentMap meta, int cnt, ISeq f, PersistentVector r){
 	super(meta);
@@ -70,14 +71,27 @@ public boolean equals(Object obj){
 public int hashCode(){
 	if(_hash == -1)
 		{
-		int hash = 0;
+		int hash = 1;
 		for(ISeq s = seq(); s != null; s = s.next())
 			{
-			hash = Util.hashCombine(hash, Util.hash(s.first()));
+			hash = 31 * hash + (s.first() == null ? 0 : s.first().hashCode());
 			}
 		this._hash = hash;
 		}
 	return _hash;
+}
+
+public int hasheq() {
+	if(_hasheq == -1)
+		{
+		int hash = 1;
+		for(ISeq s = seq(); s != null; s = s.next())
+			{
+			hash = 31 * hash + Util.hasheq(s.first());
+			}
+		this._hasheq = hash;
+		}
+    return _hasheq;
 }
 
 public Object peek(){

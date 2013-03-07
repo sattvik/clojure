@@ -205,11 +205,87 @@
   (cl-format nil "~,1f" 0.99) "1.0"
   (cl-format nil "~,2f" 0.99) "0.99"
   (cl-format nil "~,3f" 0.99) "0.990"
+  (cl-format nil "~,3f" -0.099) "-0.099"
+  (cl-format nil "~,4f" -0.099) "-0.0990"
+  (cl-format nil "~,5f" -0.099) "-0.09900"
+  (cl-format nil "~,3f" 0.099) "0.099"
+  (cl-format nil "~,4f" 0.099) "0.0990"
+  (cl-format nil "~,5f" 0.099) "0.09900"
   (cl-format nil "~f" -1) "-1.0"
   (cl-format nil "~2f" -1) "-1."
   (cl-format nil "~3f" -1) "-1."
   (cl-format nil "~4f" -1) "-1.0"
   (cl-format nil "~8f" -1) "    -1.0"
+  (cl-format nil "~2f" -0.0099) "-0."
+  (cl-format nil "~3f" -0.0099) "-0."
+  (cl-format nil "~4f" -0.0099) "-.01"
+  (cl-format nil "~5f" -0.0099) "-0.01"
+  (cl-format nil "~6f" -0.0099) "-.0099"
+  (cl-format nil "~1f" 0.0099) "0."
+  (cl-format nil "~2f" 0.0099) "0."
+  (cl-format nil "~3f" 0.0099) ".01"
+  (cl-format nil "~4f" 0.0099) "0.01"
+  (cl-format nil "~5f" 0.0099) ".0099"
+  (cl-format nil "~6f" 0.0099) "0.0099"
+  (cl-format nil "~1f" -0.099) "-.1"
+  (cl-format nil "~2f" -0.099) "-.1"
+  (cl-format nil "~3f" -0.099) "-.1"
+  (cl-format nil "~4f" -0.099) "-0.1"
+  (cl-format nil "~5f" -0.099) "-.099"
+  (cl-format nil "~6f" -0.099) "-0.099"
+  (cl-format nil "~1f" 0.099) ".1"
+  (cl-format nil "~2f" 0.099) ".1"
+  (cl-format nil "~3f" 0.099) "0.1"
+  (cl-format nil "~4f" 0.099) ".099"
+  (cl-format nil "~5f" 0.099) "0.099"
+  (cl-format nil "~1f" -0.99) "-1."
+  (cl-format nil "~2f" -0.99) "-1."
+  (cl-format nil "~3f" -0.99) "-1."
+  (cl-format nil "~4f" -0.99) "-.99"
+  (cl-format nil "~5f" -0.99) "-0.99"
+  (cl-format nil "~1f" 0.99) "1."
+  (cl-format nil "~2f" 0.99) "1."
+  (cl-format nil "~3f" 0.99) ".99"
+  (cl-format nil "~4f" 0.99) "0.99"
+  (cl-format nil "~1f" 111.11111) "111."
+  (cl-format nil "~4f" 111.11111) "111."
+  (cl-format nil "~5f" 111.11111) "111.1"
+  (cl-format nil "~1f" -111.11111) "-111."
+  (cl-format nil "~5f" -111.11111) "-111."
+  (cl-format nil "~6f" -111.11111) "-111.1"
+  (cl-format nil "~1f" 555.55555) "556."
+  (cl-format nil "~4f" 555.55555) "556."
+  (cl-format nil "~5f" 555.55555) "555.6"
+  (cl-format nil "~8f" 555.55555) "555.5556"
+  (cl-format nil "~1f" -555.55555) "-556."
+  (cl-format nil "~5f" -555.55555) "-556."
+  (cl-format nil "~6f" -555.55555) "-555.6"
+  (cl-format nil "~8f" -555.55555) "-555.556"
+  (cl-format nil "~1f" 999.999) "1000."
+  (cl-format nil "~5f" 999.999) "1000."
+  (cl-format nil "~6f" 999.999) "1000.0"
+  (cl-format nil "~7f" 999.999) "999.999"
+  (cl-format nil "~8f" 999.999) " 999.999"
+  (cl-format nil "~1f" -999.999) "-1000."
+  (cl-format nil "~6f" -999.999) "-1000."
+  (cl-format nil "~7f" -999.999) "-1000.0"
+  (cl-format nil "~8f" -999.999) "-999.999"
+  (cl-format nil "~5,2f" 111.11111) "111.11"
+  (cl-format nil "~3,1f" -0.0099) "-.0"
+  (cl-format nil "~6,4f" -0.0099) "-.0099"
+  (cl-format nil "~6,5f" -0.0099) "-.00990"
+  (cl-format nil "~6,6f" -0.0099) "-.009900"
+  (cl-format nil "~6,4f" 0.0099) "0.0099"
+  (cl-format nil "~6,5f" 0.0099) ".00990"
+  (cl-format nil "~6,6f" 0.0099) ".009900"
+  (cl-format nil "~2,1f" 0.0099) ".0"
+  (cl-format nil "~6,2f" -111.11111) "-111.11"
+  (cl-format nil "~6,3f" -111.11111) "-111.111"
+  (cl-format nil "~8,5f" -111.11111) "-111.11111"
+  (cl-format nil "~12,10f" 1.23456789014) "1.2345678901"
+  (cl-format nil "~12,10f" 1.23456789016) "1.2345678902"
+  (cl-format nil "~13,10f" -1.23456789014) "-1.2345678901"
+  (cl-format nil "~13,10f" -1.23456789016) "-1.2345678902"
   (cl-format nil "~1,1f" 0.1) ".1")
 
 (simple-tests ampersand-tests
@@ -683,3 +759,25 @@ but it was called with an argument of type short-float.\n")
           '((hot dog) (hamburger) (ice cream) (french fries))) 
   "/hot .../hamburger")
 
+(simple-tests pprint-table-tests
+  (with-out-str
+    (print-table [:b :a]
+                 [{:a 1 :b {:a 'is-a} :c ["hi" "there"]}
+                  {:b 5 :a 7 :c "dog" :d -700}]))
+  "
+|        :b | :a |
+|-----------+----|
+| {:a is-a} |  1 |
+|         5 |  7 |
+"
+  (with-out-str
+    (print-table [:a :e :d :c]
+                 [{:a 54.7e17 :b {:a 'is-a} :c ["hi" "there"]}
+                  {:b 5 :a -2/3 :c "dog" :d 'panda}]))
+  "
+|      :a | :e |    :d |             :c |
+|---------+----+-------+----------------|
+| 5.47E18 |    |       | [\"hi\" \"there\"] |
+|    -2/3 |    | panda |            dog |
+"
+  )

@@ -24,3 +24,10 @@
                         m (zipmap ks ks)
                         dm (persistent! (reduce dissoc! (transient m) (keys m)))]
                     [(count dm) dm])))))
+
+(deftest test-disj!
+  (testing "disjoin multiple items in one call"
+    (is (= #{5 20} (-> #{5 10 15 20} transient (disj! 10 15) persistent!)))))
+
+(deftest empty-transient
+  (is (= false (.contains (transient #{}) :bogus-key))))

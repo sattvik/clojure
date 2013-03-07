@@ -17,7 +17,15 @@
   (.replace (str ns) \- \_))
 
 ;for now, built on gen-interface
-(defmacro definterface 
+(defmacro definterface
+  "Creates a new Java interface with the given name and method sigs.
+  The method return types and parameter types may be specified with type hints,
+  defaulting to Object if omitted.
+
+  (definterface MyInterface
+    (^int method1 [x])
+    (^Bar method2 [^Baz b ^Quux q]))"
+  {:added "1.2"} ;; Present since 1.2, but made public in 1.5.
   [name & sigs]
   (let [tag (fn [x] (or (:tag (meta x)) Object))
         psig (fn [[name [& args]]]
@@ -148,7 +156,8 @@
         hinted-fields fields
         fields (vec (map #(with-meta % nil) fields))
         base-fields fields
-        fields (conj fields '__meta '__extmap)]
+        fields (conj fields '__meta '__extmap)
+        type-hash (hash classname)]
     (when (some #{:volatile-mutable :unsynchronized-mutable} (mapcat (comp keys meta) hinted-fields))
       (throw (IllegalArgumentException. ":volatile-mutable or :unsynchronized-mutable not supported for record fields")))
     (let [gs (gensym)]
@@ -157,8 +166,9 @@
         [(conj i 'clojure.lang.IRecord)
          m])
       (eqhash [[i m]] 
-        [i
-         (conj m 
+        [(conj i 'clojure.lang.IHashEq)
+         (conj m
+               `(hasheq [this#] (bit-xor ~type-hash (clojure.lang.APersistentMap/mapHasheq this#)))
                `(hashCode [this#] (clojure.lang.APersistentMap/mapHash this#))
                `(equals [this# ~gs] (clojure.lang.APersistentMap/mapEquals this# ~gs)))])
       (iobj [[i m]] 
@@ -266,6 +276,8 @@
 (defn- validate-fields
   ""
   [fields]
+  (when-not (vector? fields)
+    (throw (AssertionError. "No fields vector given.")))
   (let [specials #{'__meta '__extmap}]
     (when (some specials fields)
       (throw (AssertionError. (str "The names in " specials " cannot be used as field names for types or records."))))))
@@ -337,9 +349,10 @@
   Given (defrecord TypeName ...), two factory functions will be
   defined: ->TypeName, taking positional parameters for the fields,
   and map->TypeName, taking a map of keywords to field values."
-  {:added "1.2"}
+  {:added "1.2"
+   :arglists '([name [& fields] & opts+specs])}
 
-  [name [& fields] & opts+specs]
+  [name fields & opts+specs]
   (validate-fields fields)
   (let [gname name
         [interfaces methods opts] (parse-opts+specs opts+specs)
@@ -430,9 +443,10 @@
 
   Given (deftype TypeName ...), a factory function called ->TypeName
   will be defined, taking positional parameters for the fields"
-  {:added "1.2"}
+  {:added "1.2"
+   :arglists '([name [& fields] & opts+specs])}
 
-  [name [& fields] & opts+specs]
+  [name fields & opts+specs]
   (validate-fields fields)
   (let [gname name
         [interfaces methods opts] (parse-opts+specs opts+specs)
@@ -582,22 +596,23 @@
             string? (recur (assoc opts :doc (first sigs)) (next sigs))
             keyword? (recur (assoc opts (first sigs) (second sigs)) (nnext sigs))
             [opts sigs]))
-        sigs (reduce1 (fn [m s]
-                       (let [name-meta (meta (first s))
-                             mname (with-meta (first s) nil)
-                             [arglists doc]
-                               (loop [as [] rs (rest s)]
-                                 (if (vector? (first rs))
-                                   (recur (conj as (first rs)) (next rs))
-                                   [(seq as) (first rs)]))]
-                         (when (some #{0} (map count arglists))
-                           (throw (IllegalArgumentException. (str "Protocol fn: " mname " must take at least one arg"))))
-                         (assoc m (keyword mname)
-                                (merge name-meta
-                                       {:name (vary-meta mname assoc :doc doc :arglists arglists)
-                                        :arglists arglists
-                                        :doc doc}))))
-                     {} sigs)
+        sigs (when sigs
+               (reduce1 (fn [m s]
+                          (let [name-meta (meta (first s))
+                                mname (with-meta (first s) nil)
+                                [arglists doc]
+                                (loop [as [] rs (rest s)]
+                                  (if (vector? (first rs))
+                                    (recur (conj as (first rs)) (next rs))
+                                    [(seq as) (first rs)]))]
+                            (when (some #{0} (map count arglists))
+                              (throw (IllegalArgumentException. (str "Protocol fn: " mname " must take at least one arg"))))
+                            (assoc m (keyword mname)
+                                   (merge name-meta
+                                          {:name (vary-meta mname assoc :doc doc :arglists arglists)
+                                           :arglists arglists
+                                           :doc doc}))))
+                        {} sigs))
         meths (mapcat (fn [sig]
                         (let [m (munge (:name sig))]
                           (map #(vector m (vec (repeat (dec (count %))'Object)) 'Object) 
@@ -607,7 +622,8 @@
      (defonce ~name {})
      (gen-interface :name ~iname :methods ~meths)
      (alter-meta! (var ~name) assoc :doc ~(:doc opts))
-     (#'assert-same-protocol (var ~name) '~(map :name (vals sigs)))
+     ~(when sigs
+        `(#'assert-same-protocol (var ~name) '~(map :name (vals sigs))))
      (alter-var-root (var ~name) merge 
                      (assoc ~opts 
                        :sigs '~sigs 

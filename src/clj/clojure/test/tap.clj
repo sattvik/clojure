@@ -23,7 +23,7 @@
 (ns ^{:doc "clojure.test extensions for the Test Anything Protocol (TAP)
 
   TAP is a simple text-based syntax for reporting test results.  TAP
-  was originally develped for Perl, and now has implementations in
+  was originally developed for Perl, and now has implementations in
   several languages.  For more information on TAP, see
   http://testanything.org/ and
   http://search.cpan.org/~petdance/TAP-1.0.0/TAP.pm
@@ -69,38 +69,45 @@
   (println "not ok" msg))
 
 ;; This multimethod will override test/report
-(defmulti ^:dynamic tap-report (fn [data] (:type data)))
+(defmulti ^:dynamic tap-report :type)
 
 (defmethod tap-report :default [data]
   (t/with-test-out
    (print-tap-diagnostic (pr-str data))))
 
+(defn print-diagnostics [data]
+  (when (seq t/*testing-contexts*)
+    (print-tap-diagnostic (t/testing-contexts-str)))
+  (when (:message data)
+    (print-tap-diagnostic (:message data)))
+  (print-tap-diagnostic (str "expected:" (pr-str (:expected data))))
+  (if (= :pass (:type data))
+    (print-tap-diagnostic (str "  actual:" (pr-str (:actual data))))
+    (do
+      (print-tap-diagnostic
+       (str "  actual:"
+        (with-out-str
+          (if (instance? Throwable (:actual data))
+            (stack/print-cause-trace (:actual data) t/*stack-trace-depth*)
+            (prn (:actual data)))))))))
+
 (defmethod tap-report :pass [data]
   (t/with-test-out
    (t/inc-report-counter :pass)
-   (print-tap-pass (t/testing-vars-str))
-   (when (seq t/*testing-contexts*)
-     (print-tap-diagnostic (t/testing-contexts-str)))
-   (when (:message data)
-     (print-tap-diagnostic (:message data)))
-   (print-tap-diagnostic (str "expected:" (pr-str (:expected data))))
-   (print-tap-diagnostic (str "  actual:" (pr-str (:actual data))))))
+   (print-tap-pass (t/testing-vars-str data))
+   (print-diagnostics data)))
 
 (defmethod tap-report :error [data]
   (t/with-test-out
    (t/inc-report-counter :error)
-   (print-tap-fail (t/testing-vars-str))
-   (when (seq t/*testing-contexts*)
-     (print-tap-diagnostic (t/testing-contexts-str)))
-   (when (:message data)
-     (print-tap-diagnostic (:message data)))
-   (print-tap-diagnostic "expected:" (pr-str (:expected data)))
-   (print-tap-diagnostic "  actual: ")
-   (print-tap-diagnostic
-    (with-out-str
-      (if (instance? Throwable (:actual data))
-        (stack/print-cause-trace (:actual data) t/*stack-trace-depth*)
-        (prn (:actual data)))))))
+   (print-tap-fail (t/testing-vars-str data))
+   (print-diagnostics data)))
+
+(defmethod tap-report :fail [data]
+  (t/with-test-out
+   (t/inc-report-counter :fail)
+   (print-tap-fail (t/testing-vars-str data))
+   (print-diagnostics data)))
 
 (defmethod tap-report :summary [data]
   (t/with-test-out

@@ -21,7 +21,10 @@
   (:use [clojure.instant :only [read-instant-date
                                 read-instant-calendar
                                 read-instant-timestamp]])
-  (:import clojure.lang.BigInt
+  (:require clojure.walk
+            [clojure.test.generative :refer (defspec)]
+            [clojure.test-clojure.generators :as cgen])
+  (:import [clojure.lang BigInt Ratio]
            java.io.File
            java.util.TimeZone))
 
@@ -273,6 +276,10 @@
 
   (is (instance? BigDecimal -1.0M))
   (is (instance? BigDecimal -1.M))
+
+  (is (instance? Ratio 1/2))
+  (is (instance? Ratio -1/2))
+  (is (instance? Ratio +1/2))
 )
 
 ;; Characters
@@ -391,6 +398,41 @@
 
 ;; Metadata (^ or #^ (deprecated))
 
+(deftest t-line-column-numbers
+  (let [code "(ns reader-metadata-test
+  (:require [clojure.java.io
+             :refer (resource reader)]))
+
+(let [a 5]
+  ^:added-metadata
+  (defn add-5
+    [x]
+    (reduce + x (range a))))"
+        stream (clojure.lang.LineNumberingPushbackReader.
+                 (java.io.StringReader. code))
+        top-levels (take-while identity (repeatedly #(read stream false nil)))
+        expected-metadata '{ns {:line 1, :column 1}
+                            :require {:line 2, :column 3}
+                            resource {:line 3, :column 21}
+                            let {:line 5, :column 1}
+                            defn {:line 6, :column 3 :added-metadata true}
+                            reduce {:line 9, :column 5}
+                            range {:line 9, :column 17}}
+        verified-forms (atom 0)]
+    (doseq [form top-levels]
+      (clojure.walk/postwalk
+        #(when (list? %)
+           (is (= (expected-metadata (first %))
+                  (meta %)))
+           (is (->> (meta %)
+                 vals
+                 (filter number?)
+                 (every? (partial instance? Integer))))
+           (swap! verified-forms inc))
+        form))
+    ;; sanity check against e.g. reading returning ()
+    (is (= (count expected-metadata) @verified-forms))))
+
 (deftest t-Metadata
   (is (= (meta '^:static ^:awesome ^{:static false :bar :baz} sym) {:awesome true, :bar :baz, :static true})))
 
@@ -501,3 +543,68 @@
   (is (= 4 (.version #uuid "550e8400-e29b-41d4-a716-446655440000")))
   (is (= (print-str #uuid "550e8400-e29b-41d4-a716-446655440000")
          "#uuid \"550e8400-e29b-41d4-a716-446655440000\"")))
+
+(deftest unknown-tag
+  (let [my-unknown (fn [tag val] {:unknown-tag tag :value val})
+        throw-on-unknown (fn [tag val] (throw (RuntimeException. (str "No data reader function for tag " tag))))
+        my-uuid (partial my-unknown 'uuid)
+        u "#uuid \"550e8400-e29b-41d4-a716-446655440000\""
+        s "#never.heard.of/some-tag [1 2]" ]
+    (binding [*data-readers* {'uuid my-uuid}
+              *default-data-reader-fn* my-unknown]
+      (testing "Unknown tag"
+        (is (= (read-string s)
+               {:unknown-tag 'never.heard.of/some-tag
+                :value [1 2]})))
+      (testing "Override uuid tag"
+        (is (= (read-string u)
+               {:unknown-tag 'uuid
+                :value "550e8400-e29b-41d4-a716-446655440000"}))))
+
+    (binding [*default-data-reader-fn* throw-on-unknown]
+      (testing "Unknown tag with custom throw-on-unknown"
+        (are [err msg form] (thrown-with-msg? err msg (read-string form))
+             Exception #"No data reader function for tag foo" "#foo [1 2]"
+             Exception #"No data reader function for tag bar/foo" "#bar/foo [1 2]"
+             Exception #"No data reader function for tag bar.baz/foo" "#bar.baz/foo [1 2]")))
+
+    (testing "Unknown tag out-of-the-box behavior (like Clojure 1.4)"
+      (are [err msg form] (thrown-with-msg? err msg (read-string form))
+           Exception #"No reader function for tag foo" "#foo [1 2]"
+           Exception #"No reader function for tag bar/foo" "#bar/foo [1 2]"
+           Exception #"No reader function for tag bar.baz/foo" "#bar.baz/foo [1 2]"))))
+
+
+(defn roundtrip
+  "Print an object and read it back. Returns rather than throws
+   any exceptions."
+  [o]
+  (binding [*print-length* nil
+            *print-dup* nil
+            *print-level* nil]
+    (try
+     (-> o pr-str read-string)
+     (catch Throwable t t))))
+
+(defn roundtrip-dup
+  "Print an object with print-dup and read it back.
+   Returns rather than throws any exceptions."
+  [o]
+  (binding [*print-length* nil
+            *print-dup* true
+            *print-level* nil]
+    (try
+     (-> o pr-str read-string)
+     (catch Throwable t t))))
+
+(defspec types-that-should-roundtrip
+  roundtrip
+  [^{:tag cgen/ednable} o]
+  (when-not (= o %)
+    (throw (ex-info "Value cannot roundtrip, see ex-data" {:printed o :read %}))))
+
+(defspec types-that-need-dup-to-roundtrip
+  roundtrip-dup
+  [^{:tag cgen/dup-readable} o]
+  (when-not (= o %)
+    (throw (ex-info "Value cannot roundtrip, see ex-data" {:printed o :read %}))))

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.clojure</groupId>
+  <groupId>android</groupId>
   <artifactId>clojure</artifactId>
   <name>clojure</name>
   <packaging>jar</packaging>
-  <version>1.5.0-master-SNAPSHOT</version>
+  <version>1.5.0</version>
 
   <url>http://clojure.org/</url>
   <description>Clojure core environment and runtime library.</description>
@@ -37,6 +37,33 @@
     <developerConnection>scm:git:git@github.com:clojure/clojure.git</developerConnection>
     <url>git@github.com:clojure/clojure.git</url>
   </scm>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.codehaus.jsr166-mirror</groupId>
+      <artifactId>jsr166y</artifactId>
+      <version>1.7.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.clojure</groupId>
+      <artifactId>test.generative</artifactId>
+      <version>0.4.0</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.clojure</groupId>
+          <artifactId>clojure</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.google.android</groupId>
+      <artifactId>android</artifactId>
+      <version>4.0.1.2</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
 
   <build>
     <resources>
@@ -72,6 +99,7 @@
 	    </goals>
 	    <configuration>
 	      <target>
+                <property name="maven.compile.classpath" refid="maven.compile.classpath" />
 		<ant target="compile-clojure" />
 	      </target>
 	    </configuration>
@@ -84,6 +112,7 @@
 	    </goals>
 	    <configuration>
 	      <target>
+                <property name="maven.test.classpath" refid="maven.test.classpath" />
 		<ant target="test" />
 	      </target>
 	    </configuration>
@@ -209,13 +238,4 @@
       </build>
     </profile>
   </profiles>
-
-  <dependencies>
-    <dependency>
-      <groupId>com.google.android</groupId>
-      <artifactId>android</artifactId>
-      <version>2.1.2</version>
-      <scope>provided</scope>
-    </dependency>
-  </dependencies>
 </project>
